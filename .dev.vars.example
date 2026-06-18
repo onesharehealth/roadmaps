@@ -1,0 +1,18 @@
+SESSION_SECRET=dev-secret-change-me
+APP_URL=http://localhost:5173
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=change-me-on-first-login
+
+# Email (required for production invites + password reset)
+# EMAIL_PROVIDER=resend
+# EMAIL_FROM=roadmaps@example.com
+# RESEND_API_KEY=
+
+# Linear import (optional)
+# LINEAR_API_KEY=
+
+# AI summarization (optional)
+# AI_PROVIDER=google
+# AI_MODEL=gemini-2.5-flash
+# GOOGLE_AI_STUDIO_API_KEY=
+# GOOGLE_AI_STUDIO_BASE_URL=

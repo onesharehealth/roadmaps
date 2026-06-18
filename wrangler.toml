@@ -1,0 +1,84 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "roadmaps"
+workers_dev = true
+compatibility_date = "2025-12-02"
+compatibility_flags = ["nodejs_compat"]
+main = "./workers/app.ts"
+assets = { directory = "./build/client" }
+
+[observability]
+enabled = true
+
+[vars]
+ENVIRONMENT = "production"
+
+[[durable_objects.bindings]]
+name = "SYSTEM_AGENT"
+class_name = "SystemAgent"
+
+[[durable_objects.bindings]]
+name = "USER_AGENT"
+class_name = "UserAgent"
+
+[[durable_objects.bindings]]
+name = "TEAM_AGENT"
+class_name = "TeamAgent"
+
+[[durable_objects.bindings]]
+name = "TIMELINE_SESSION_AGENT"
+class_name = "TimelineSessionAgent"
+
+[[durable_objects.bindings]]
+name = "DOT_VOTING_SESSION_AGENT"
+class_name = "DotVotingSessionAgent"
+
+[[durable_objects.bindings]]
+name = "PROPERTY_VOTING_SESSION_AGENT"
+class_name = "PropertyVotingSessionAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SystemAgent", "UserAgent", "TeamAgent"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["TimelineSessionAgent", "DotVotingSessionAgent", "PropertyVotingSessionAgent"]
+
+[env.dev]
+workers_dev = true
+
+[env.dev.vars]
+ENVIRONMENT = "development"
+APP_URL = "http://localhost:5173"
+
+[[env.dev.durable_objects.bindings]]
+name = "SYSTEM_AGENT"
+class_name = "SystemAgent"
+
+[[env.dev.durable_objects.bindings]]
+name = "USER_AGENT"
+class_name = "UserAgent"
+
+[[env.dev.durable_objects.bindings]]
+name = "TEAM_AGENT"
+class_name = "TeamAgent"
+
+[[env.dev.durable_objects.bindings]]
+name = "TIMELINE_SESSION_AGENT"
+class_name = "TimelineSessionAgent"
+
+[[env.dev.durable_objects.bindings]]
+name = "DOT_VOTING_SESSION_AGENT"
+class_name = "DotVotingSessionAgent"
+
+[[env.dev.durable_objects.bindings]]
+name = "PROPERTY_VOTING_SESSION_AGENT"
+class_name = "PropertyVotingSessionAgent"
+
+[[env.dev.migrations]]
+tag = "v1"
+new_sqlite_classes = ["SystemAgent", "UserAgent", "TeamAgent"]
+
+[[env.dev.migrations]]
+tag = "v2"
+new_sqlite_classes = ["TimelineSessionAgent", "DotVotingSessionAgent", "PropertyVotingSessionAgent"]

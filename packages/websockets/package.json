@@ -1,0 +1,16 @@
+{
+  "name": "websockets",
+  "version": "1.0.0",
+  "description": "WebSocket abstractions for agents and React applications",
+  "main": "index.ts",
+  "types": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "clean": "rimraf .turbo && rimraf build && rimraf .cache && rimraf node_modules",
+    "typecheck": "tsc --noEmit --incremental false",
+    "lint": "eslint . --fix"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

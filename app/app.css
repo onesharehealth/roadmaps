@@ -1,0 +1,156 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@source './**/*.{ts,tsx}';
+
+@theme {
+  --color-border: var(--color-slate-200);
+  --color-input: var(--color-slate-300);
+  --color-ring: var(--color-blue-500);
+  --color-background: hsl(214 32% 97%);
+  --color-foreground: hsl(222 47% 11%);
+  --color-primary: hsl(217 91% 50%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-muted: hsl(214 32% 94%);
+  --color-muted-foreground: hsl(215 16% 47%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222 47% 11%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222 47% 11%);
+  --color-accent: hsl(214 95% 93%);
+  --color-accent-foreground: hsl(217 91% 35%);
+  --color-destructive: hsl(0 72% 51%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --radius: 0.625rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    margin: 0;
+    min-height: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .auth-shell {
+    @apply bg-background grid min-h-screen place-items-center p-6;
+  }
+
+  .page {
+    @apply mx-auto max-w-4xl p-8;
+  }
+
+  .page-session {
+    @apply mx-auto max-w-6xl p-8;
+  }
+
+  .page-narrow {
+    @apply mx-auto max-w-2xl p-8;
+  }
+
+  .card {
+    @apply border-border bg-card rounded-xl border shadow-sm;
+  }
+
+  .auth-card {
+    @apply w-full max-w-md p-8;
+  }
+
+  .card-padded {
+    @apply border-border bg-card rounded-xl border p-4 shadow-sm;
+  }
+
+  .list-row {
+    @apply border-border bg-card rounded-lg border px-4 py-3 shadow-sm transition-colors;
+  }
+
+  .list-row-interactive {
+    @apply border-border bg-card hover:bg-accent/40 rounded-lg border px-4 py-3 shadow-sm transition-colors hover:border-blue-200;
+  }
+
+  .field {
+    @apply border-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 rounded-md border px-3 py-2 text-sm shadow-sm transition-colors focus:ring-2 focus:outline-none;
+  }
+
+  .field-sm {
+    @apply border-border bg-card focus:border-primary focus:ring-primary/20 rounded-md border px-2 py-1 text-sm shadow-sm focus:ring-2 focus:outline-none;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply border-border bg-card text-foreground hover:bg-accent/50 inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:border-blue-200 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .link-back {
+    @apply text-primary text-sm font-medium hover:text-blue-700;
+  }
+
+  .link-muted {
+    @apply text-muted-foreground hover:text-primary text-sm transition-colors;
+  }
+
+  .sidebar {
+    @apply border-border bg-card border-r p-4 shadow-sm;
+  }
+
+  .nav-item {
+    @apply hover:bg-muted rounded-md px-3 py-2 text-left text-sm transition-colors;
+  }
+
+  .nav-item-active {
+    @apply bg-accent text-accent-foreground rounded-md px-3 py-2 text-left text-sm font-medium;
+  }
+
+  .sidebar-divider {
+    @apply border-border my-3 border-t;
+  }
+
+  .code-block {
+    @apply border-border bg-muted text-foreground overflow-auto rounded-lg border p-4 text-xs;
+  }
+
+  .app-shell {
+    @apply bg-background text-foreground min-h-screen;
+  }
+
+  .session-tile {
+    @apply border-border bg-card rounded-xl border shadow-sm transition-all duration-200 ease-out;
+  }
+
+  .session-tile-interactive:hover {
+    @apply -translate-y-0.5 shadow-md;
+    border-color: var(--session-tile-hover-border, var(--color-border));
+    background: linear-gradient(
+      to bottom,
+      var(--color-card),
+      var(--session-tile-hover-bg-end, var(--color-card))
+    );
+  }
+
+  .create-session-bar {
+    @apply border-border bg-card inline-flex w-full flex-col overflow-hidden rounded-lg border sm:w-auto sm:flex-row sm:items-stretch;
+  }
+
+  .create-session-option {
+    @apply text-foreground flex h-10 w-full items-center gap-2 border-0 bg-transparent px-3 text-left text-sm font-medium transition-colors duration-200 sm:w-auto;
+  }
+
+  .create-session-option:hover {
+    background: var(--session-option-hover-bg, var(--color-accent));
+  }
+}

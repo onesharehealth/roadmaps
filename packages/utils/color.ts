@@ -1,0 +1,11 @@
+export function darkenHexColor(hex: string, percent: number): string {
+  hex = hex.replace(/^#/, '')
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  const factor = 1 - percent / 100
+  const darkR = Math.round(r * factor)
+  const darkG = Math.round(g * factor)
+  const darkB = Math.round(b * factor)
+  return `#${[darkR, darkG, darkB].map((x) => x.toString(16).padStart(2, '0')).join('')}`
+}

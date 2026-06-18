@@ -1,0 +1,17 @@
+packages:
+  - 'packages/*'
+  - 'roadmaps-agents'
+allowBuilds:
+  core-js-pure: set this to true or false
+  esbuild: true
+  sharp: true
+  workerd: true
+
+dangerouslyAllowAllBuilds: true
+ignoreWorkspaceRootCheck: true
+
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+  - sharp
+  - core-js-pure

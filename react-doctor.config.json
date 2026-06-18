@@ -1,0 +1,15 @@
+{
+  "ignore": {
+    "files": [
+      "app/components/ui/**",
+      "packages/websockets/client/components/ChannelTest.tsx"
+    ],
+    "rules": [
+      "react-doctor/no-cascading-set-state",
+      "react-doctor/no-derived-useState",
+      "react-doctor/prefer-useReducer",
+      "react-doctor/async-parallel",
+      "knip/types"
+    ]
+  }
+}

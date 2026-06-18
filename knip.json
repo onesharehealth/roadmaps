@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "workers/app.ts",
+    "app/entry.client.tsx",
+    "app/entry.server.tsx",
+    "app/routes.ts"
+  ],
+  "ignore": ["build/**", ".react-router/**", ".wrangler/**"]
+}
