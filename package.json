@@ -6,7 +6,7 @@
   "packageManager": "pnpm@11.0.0",
   "scripts": {
     "clean": "rimraf build .cache node_modules packages/*/node_modules",
-    "build": "pnpm run typecheck && react-router build --logLevel error",
+    "build": "pnpm run typecheck && react-router build",
     "deploy": "pnpm build && wrangler deploy",
     "dev": "cross-env CLOUDFLARE_ENV=dev dotenv -- react-router dev",
     "start": "pnpm build && wrangler dev",
