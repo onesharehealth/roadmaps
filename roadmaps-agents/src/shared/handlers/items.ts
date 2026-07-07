@@ -2,7 +2,8 @@ import { dataError, type DataResult, dataSuccess } from 'utils/data'
 import { zParse } from 'utils/zod'
 
 import { getItemsChannelName, ITEMS_EVENTS } from '../channels'
-import { buildAccessContext, canEditSession, type SessionAgent } from '../session-handlers'
+import { buildAccessContext, canAccessSession, canEditSession, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 import { type RoadmapItem, roadmapItemSchema, roadmapItemsSchema, type RoadmapStatus } from '../session-schemas'
 import { getRoadmapOrderAtEndOfAssigned } from './timeline'
 
@@ -63,6 +64,9 @@ export async function createItem(
 ) {
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const uuid = crypto.randomUUID()
   const now = Math.floor(Date.now() / 1000)
@@ -142,6 +146,9 @@ export async function updateItem(
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   const existingItem = this.ctx.storage.sql.exec(`SELECT * FROM roadmap_items WHERE uuid = ?`, itemUuid).one()
   if (!existingItem) return dataError('Item not found')
 
@@ -206,6 +213,9 @@ export async function deleteItem(
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   const { sessionType, uuid } = this.state
 
   if (sessionType === 'dot_voting') {
@@ -225,13 +235,19 @@ export async function deleteItem(
   return dataSuccess({ deleted: true })
 }
 
-export async function getItem(this: SessionAgent, { itemUuid }: { itemUuid: string }) {
+export async function getItem(this: SessionAgent, { itemUuid, userId }: { itemUuid: string; userId: string }) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   const item = this.ctx.storage.sql.exec(`SELECT * FROM roadmap_items WHERE uuid = ?`, itemUuid).one()
   if (!item) return dataError('Item not found')
   return zParse(roadmapItemSchema, mapItemRow(this, item as Record<string, unknown>))
 }
 
-export async function getAllItems(this: SessionAgent, { orderBy }: { orderBy?: string } = {}) {
+export async function getAllItems(this: SessionAgent, { orderBy, userId }: { orderBy?: string; userId: string }) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   let query = 'SELECT * FROM roadmap_items'
   query += orderBy ? ` ORDER BY ${orderBy}` : ' ORDER BY display_order ASC'
 
@@ -253,6 +269,9 @@ export async function reorderItems(
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   for (const { uuid, displayOrder } of itemOrders) {
     this.ctx.storage.sql.exec(
       `UPDATE roadmap_items SET display_order = ?, updated_at = UNIXEPOCH() WHERE uuid = ?`,
@@ -261,7 +280,7 @@ export async function reorderItems(
     )
   }
 
-  const allItemsResult = await getAllItems.call(this)
+  const allItemsResult = await getAllItems.call(this, { userId })
   if (!allItemsResult.ok) return allItemsResult
 
   this.broadcastToChannel(getItemsChannelName(this.state.uuid), ITEMS_EVENTS.REORDERED, {

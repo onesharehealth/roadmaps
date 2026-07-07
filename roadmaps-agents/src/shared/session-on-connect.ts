@@ -5,7 +5,7 @@ export async function buildSessionInitialState(
   agent: SessionAgent,
   userId: string,
 ): Promise<Record<string, unknown>> {
-  const itemsResult = await agent.getAllItems()
+  const itemsResult = await agent.getAllItems({ userId })
 
   const initialData: Record<string, unknown> = {
     items: { items: itemsResult.ok ? itemsResult.body : [] },
@@ -17,11 +17,17 @@ export async function buildSessionInitialState(
   const sharingResult = await agent.getSharingInfo({ userId })
   if (sharingResult.ok) initialData.sharingInfo = sharingResult.body
 
+  const lockAgent = agent as SessionAgent & {
+    getSessionLock: (args: { userId: string }) => ReturnType<SessionAgent['getAllItems']>
+  }
+  const lockResult = await lockAgent.getSessionLock({ userId })
+  if (lockResult.ok) initialData.sessionLock = lockResult.body
+
   const sessionType = sessionState.sessionType
 
   if (sessionType === 'dot_voting') {
     const dotVotingAgent = agent as SessionAgent & {
-      getCompleteDotStats: (args: { userId?: string }) => ReturnType<SessionAgent['getAllItems']>
+      getCompleteDotStats: (args: { userId: string }) => ReturnType<SessionAgent['getAllItems']>
       getDotVotingSettings: (args: { userId: string }) => ReturnType<SessionAgent['getAllItems']>
     }
 
@@ -43,14 +49,18 @@ export async function buildSessionInitialState(
 
   if (sessionType === 'property_voting') {
     const propertyAgent = agent as SessionAgent & {
-      getAllVotingProperties: () => ReturnType<SessionAgent['getAllItems']>
+      getAllVotingProperties: (args: { userId: string }) => ReturnType<SessionAgent['getAllItems']>
       getCompletePropertyStats: (args: {
         propertyUuid: string
-        userId?: string
+        userId: string
       }) => ReturnType<SessionAgent['getAllItems']>
+      getPropertyVotingSettings: (args: { userId: string }) => ReturnType<SessionAgent['getAllItems']>
     }
 
-    const propertiesResult = await propertyAgent.getAllVotingProperties()
+    const propertySettings = await propertyAgent.getPropertyVotingSettings({ userId })
+    if (propertySettings.ok) initialData.propertyVotingSettings = propertySettings.body
+
+    const propertiesResult = await propertyAgent.getAllVotingProperties({ userId })
     if (propertiesResult.ok) {
       const properties = propertiesResult.body as VotingProperty[]
       initialData.votingProperties = { properties }

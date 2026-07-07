@@ -13,24 +13,35 @@ Roadmaps is a multi-tenant collaborative app on Cloudflare Workers. Authorizatio
 
 Access is computed per user and session in `roadmaps-agents/src/shared/access.ts`. A user may qualify through ownership, team membership, or explicit share.
 
-| Tier       | Who                                             | Typical operations                                                                              |
-| ---------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Owner**  | Session creator                                 | Delete, rename, share/unshare, move location, dot-voting settings                               |
-| **Editor** | Owner, team admin, or share with `write`        | Items CRUD, timeline settings, voting properties, Linear import, roadmap status, AI description |
-| **Voter**  | Anyone with session access who is not an editor | Cast/remove votes                                                                               |
-| **Reader** | Owner, team member, or share with `read`        | View session, connect WebSocket, read data                                                      |
+| Tier       | Who                                             | Typical operations                                                                                       |
+| ---------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Owner**  | Session creator                                 | Delete, rename, share/unshare, lock/unlock, move location, transfer ownership                            |
+| **Editor** | Owner, team admin, or share with `write`        | Items CRUD, timeline settings, voting settings/properties, Linear import, roadmap status, AI description |
+| **Voter**  | Anyone with session access who is not an editor | Cast/remove votes                                                                                        |
+| **Reader** | Owner, team member, or share with `read`        | View session, connect WebSocket, read data                                                               |
 
 Helpers: `canAccessSession`, `canEditSession`, `canVote`, `canManageSharing` (owner only).
 
 Team admins receive editor-level session access when the session belongs to their team.
 
+The app exposes the owner-tier helper to the UI as `canManageSession` because app admins can receive the same management powers for unassigned content whose owner has been deactivated or deleted. That does not make them the literal session owner.
+
+## Session lock
+
+Owners can lock or unlock a session. Locking freezes collaborative changes while preserving the session for review:
+
+- **Blocked while locked:** item edits/reorder/delete, roadmap status changes, timeline/settings changes, dot/property votes, voting property changes, voting rules/settings changes, dot-vote reset, and rename.
+- **Still allowed while locked:** reads, share/unshare, transfer ownership, delete, move location, and lock/unlock.
+
+Lock checks are enforced in the session Durable Object with `assertSessionUnlocked`; client-side disabled controls are only UX.
+
 ## Enforcement layers
 
 ### HTTP (loaders & actions)
 
-- **Session pages:** Loaders call `userHasAccess` on the session agent; no access → `403`.
+- **Session pages:** Loaders call `checkAccess` on the session agent; no access → `403`.
 - **Session actions:** `requireSessionAccessTier` maps intent to `read` / `edit` / `owner` before work runs. Checks run inside the session Durable Object via `checkAccess` (not by re-implementing rules in the app layer).
-- **Settings routes:** Dot-voting settings require owner; property-voting settings require editor.
+- **Settings routes:** All settings pages require editor access. Owner-only controls inside settings (sharing, lock, danger zone) still require owner-tier session management.
 - **Move session:** Owner only; target team membership verified for `move-to-team`.
 
 ### WebSocket (real-time)
@@ -38,25 +49,29 @@ Team admins receive editor-level session access when the session belongs to thei
 - **Connect:** Session agent rejects users without access (`1008 Forbidden`).
 - **Identity:** Acting user is always `channel.userId` from the connection. Client payloads must not include `email`, `username`, or `createdBy`; channel handlers inject `userId` via `withActingUser`.
 - **Mutations:** Agent handlers call `buildAccessContext` and the appropriate `can*` helper before changing state.
+- **Reads:** Session-owned read handlers require the acting `userId` and check `canAccessSession`.
 - **Revocation:** Removing a share disconnects that user’s WebSocket connections and redirects share-only clients to home.
 
 ### Teams
 
 - **View team:** Team member required (`requireTeamMember`) or app admin (`requireTeamMemberOrAppAdmin`).
-- **Invite / remove member:** Team admin required (`requireTeamAdmin`) or app admin (`requireTeamAdminOrAppAdmin`).
-- **App admin team recovery:** App admins can view all registered teams, claim admin rights on orphaned teams, and promote/demote team admins. Removing or demoting the last team admin is blocked.
+- **Invite / remove member:** Team admin required (`requireTeamAdmin`).
+- **Promote / demote member:** Team admin required. Removing or demoting the last team admin is blocked.
+- **App admin team recovery:** App admins can view all registered teams and join any team as an admin from App Administration. This is a visible intervention: once joined, the app admin is a normal team admin and appears in the member list.
 - **Create session in team context:** Team membership verified before session is created and indexed.
 
 ### App user roles
 
 Roadmaps has two **app-level** roles only. These are stored on the user record in the system agent and checked on platform routes (e.g. User Administration). They are separate from session permissions and team membership.
 
-| Role            | Who gets it                                                                                                | Access                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **`user`**      | Default for standard platform invites and all team invites                                                 | Normal app use: drafts, teams, sessions, sharing |
-| **`app_admin`** | Bootstrap admin on first deploy, promoted users, or users invited as admins from App Administration        | App Administration, global team recovery, and unassigned content management |
+| Role            | Who gets it                                                                                         | Access                                                                      |
+| --------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **`user`**      | Default for standard platform invites and all team invites                                          | Normal app use: drafts, teams, sessions, sharing                            |
+| **`app_admin`** | Bootstrap admin on first deploy, promoted users, or users invited as admins from App Administration | App Administration, global team recovery, and unassigned content management |
 
 App admins are named user accounts, not shared credentials. App Administration supports inviting a user as `app_admin`, promoting/demoting existing users, and deactivating/deleting users. The last active app admin cannot be demoted, deactivated, or deleted. `MAX_APP_ADMINS` can cap the number of active app admins (default: 5).
+
+App admins manage people and containers, not private active-user content. They do not receive blanket access to active users' drafts or sessions. For teams, app admins intervene by visibly joining the team as an admin, similar to Figma-style organization recovery. For removed-user content, they can manage sessions only when the session owner is deactivated or deleted.
 
 **Team roles** (`admin`, `member`) are a different layer: they govern membership and management within a single team (invite/remove members, team-scoped sessions). They do not change the user’s app-level role.
 
@@ -70,6 +85,8 @@ Roadmaps follows a Figma-style removed-user content model for personal drafts:
 - Deleted users are recorded in a `removed_users` tombstone before their account row is removed, so app admins can still find their personal drafts.
 - App admins can view `/admin/unassigned` to delete, move to a team, or transfer ownership of drafts owned by deactivated or deleted users.
 - App admins do **not** receive blanket access to active users' private drafts. The app-admin bypass only applies when the session owner is deactivated or deleted.
+- Team sessions owned by a deleted user remain with the team. Team admins keep editor access, and app admins can use the deleted-owner bypass to transfer session ownership to an active user.
+- Orphaned teams are recoverable because app admins can join any registered team as an admin, then invite or promote a new team admin.
 
 ## Data boundaries
 

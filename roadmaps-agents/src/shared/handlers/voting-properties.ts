@@ -2,7 +2,8 @@ import { dataError, dataSuccess } from 'utils/data'
 import { zParse } from 'utils/zod'
 
 import { getVotingPropertiesChannelName, VOTING_PROPERTIES_EVENTS } from '../channels'
-import { buildAccessContext, canEditSession, type SessionAgent } from '../session-handlers'
+import { buildAccessContext, canAccessSession, canEditSession, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 import { votingPropertiesSchema, type VotingProperty, votingPropertySchema } from '../session-schemas'
 
 function mapPropertyRow(property: Record<string, unknown>) {
@@ -21,6 +22,9 @@ export async function createVotingProperty(
 ) {
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const uuid = crypto.randomUUID()
   const now = Math.floor(Date.now() / 1000)
@@ -49,6 +53,9 @@ export async function updateVotingProperty(
 ) {
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const existingProperty = this.ctx.storage.sql
     .exec(`SELECT * FROM voting_properties WHERE uuid = ?`, propertyUuid)
@@ -83,6 +90,9 @@ export async function deleteVotingProperty(
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   this.ctx.storage.sql.exec(`DELETE FROM voting_properties WHERE uuid = ?`, propertyUuid)
   this.ctx.storage.sql.exec(`DELETE FROM property_votes WHERE property_uuid = ?`, propertyUuid)
 
@@ -92,13 +102,25 @@ export async function deleteVotingProperty(
   return dataSuccess({ deleted: true })
 }
 
-export async function getVotingProperty(this: SessionAgent, { propertyUuid }: { propertyUuid: string }) {
+export async function getVotingProperty(
+  this: SessionAgent,
+  { propertyUuid, userId }: { propertyUuid: string; userId: string },
+) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   const property = this.ctx.storage.sql.exec(`SELECT * FROM voting_properties WHERE uuid = ?`, propertyUuid).one()
   if (!property) return dataError('Voting property not found')
   return zParse(votingPropertySchema, mapPropertyRow(property as Record<string, unknown>))
 }
 
-export async function getAllVotingProperties(this: SessionAgent, { orderBy }: { orderBy?: string } = {}) {
+export async function getAllVotingProperties(
+  this: SessionAgent,
+  { orderBy, userId }: { orderBy?: string; userId: string },
+) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   let query = 'SELECT * FROM voting_properties'
   query += orderBy ? ` ORDER BY ${orderBy}` : ' ORDER BY display_order ASC'
 
@@ -120,6 +142,9 @@ export async function reorderVotingProperties(
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   for (const { uuid, displayOrder } of propertyOrders) {
     this.ctx.storage.sql.exec(
       `UPDATE voting_properties SET display_order = ?, updated_at = UNIXEPOCH() WHERE uuid = ?`,
@@ -128,7 +153,7 @@ export async function reorderVotingProperties(
     )
   }
 
-  const result = await getAllVotingProperties.call(this)
+  const result = await getAllVotingProperties.call(this, { userId })
   if (!result.ok) return result
 
   this.broadcastToChannel(

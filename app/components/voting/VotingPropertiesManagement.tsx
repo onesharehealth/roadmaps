@@ -11,6 +11,7 @@ import { Input } from '~/components/ui/input'
 type VotingPropertiesManagementProps = {
   votingProperties: VotingProperty[]
   isConnected: boolean
+  embedded?: boolean
   onCreateVotingProperty: ({ name }: { name: string }) => void
   onUpdateVotingProperty: ({ propertyUuid, name }: { propertyUuid: string; name: string }) => void
   onDeleteVotingProperty: (uuid: string) => void
@@ -29,6 +30,7 @@ type DragData = {
 export function VotingPropertiesManagement({
   votingProperties,
   isConnected,
+  embedded = false,
   onCreateVotingProperty,
   onUpdateVotingProperty,
   onDeleteVotingProperty,
@@ -111,7 +113,8 @@ export function VotingPropertiesManagement({
     return (
       <div className="">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Alignment Properties</h2>
+          {!embedded && <h2 className="text-lg font-semibold text-gray-900">Alignment Properties</h2>}
+          {embedded && <div />}
           {canCreateVotingProperties && (
             <Button
               onClick={() => setShowCreatePropertyForm(!showCreatePropertyForm)}

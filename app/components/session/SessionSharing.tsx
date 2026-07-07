@@ -6,30 +6,20 @@ import { Input } from '~/components/ui/input'
 import { useSessionDetail } from './SessionDetailContext'
 
 export function SessionSharing() {
-  const { sharingInfo, userEmail, isOwner, isConnected } = useSessionDetail()
+  const { sharingInfo, userEmail, canManageSession, isConnected } = useSessionDetail()
   const [shareEmail, setShareEmail] = useState('')
-  const [sharePermission, setSharePermission] = useState<'read' | 'write'>(
-    'read',
-  )
+  const [sharePermission, setSharePermission] = useState<'read' | 'write'>('read')
 
-  if (!isOwner) return null
+  if (!canManageSession) return null
 
   const emailConflict = shareEmail.trim() === userEmail
 
   return (
-    <div className="rounded-lg border bg-card p-6 shadow-sm">
+    <div className="bg-card rounded-lg border p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold">Share with others</h2>
 
-      <Form
-        method="post"
-        className="mb-6"
-        onSubmit={() => setShareEmail('')}
-      >
-        <input
-          type="hidden"
-          name="intent"
-          value="share"
-        />
+      <Form method="post" className="mb-6" onSubmit={() => setShareEmail('')}>
+        <input type="hidden" name="intent" value="share" />
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <Input
@@ -46,42 +36,32 @@ export function SessionSharing() {
           <select
             name="permission"
             value={sharePermission}
-            onChange={(e) =>
-              setSharePermission(e.target.value as 'read' | 'write')
-            }
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs"
+            onChange={(e) => setSharePermission(e.target.value as 'read' | 'write')}
+            className="border-input bg-background h-9 rounded-md border px-3 text-sm shadow-xs"
             disabled={!isConnected}
           >
             <option value="read">Read only</option>
             <option value="write">Read & write</option>
           </select>
 
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!isConnected || !shareEmail.trim() || emailConflict}
-          >
+          <Button type="submit" size="sm" disabled={!isConnected || !shareEmail.trim() || emailConflict}>
             Share
           </Button>
         </div>
 
         {emailConflict && shareEmail.trim() && (
-          <p className="mt-2 text-sm text-destructive">
-            You cannot share with yourself
-          </p>
+          <p className="text-destructive mt-2 text-sm">You cannot share with yourself</p>
         )}
       </Form>
 
       {sharingInfo.sharedWith.length > 0 ? (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Shared with
-          </h3>
+          <h3 className="text-muted-foreground text-sm font-medium">Shared with</h3>
 
           {sharingInfo.sharedWith.map((share) => (
             <div
               key={share.email}
-              className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between"
+              className="bg-muted/30 flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                 <span className="text-sm font-medium">{share.email}</span>
@@ -97,16 +77,8 @@ export function SessionSharing() {
               </div>
 
               <Form method="post">
-                <input
-                  type="hidden"
-                  name="intent"
-                  value="unshare"
-                />
-                <input
-                  type="hidden"
-                  name="email"
-                  value={share.email}
-                />
+                <input type="hidden" name="intent" value="unshare" />
+                <input type="hidden" name="email" value={share.email} />
                 <Button
                   type="submit"
                   variant="outline"
@@ -121,9 +93,7 @@ export function SessionSharing() {
           ))}
         </div>
       ) : (
-        <p className="text-center text-sm text-muted-foreground">
-          This session is not shared with anyone yet.
-        </p>
+        <p className="text-muted-foreground text-center text-sm">This session is not shared with anyone yet.</p>
       )}
     </div>
   )

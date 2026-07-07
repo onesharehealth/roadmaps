@@ -13,7 +13,7 @@ type DotVotingSettingsComponentProps = {
 }
 
 export function DotVotingSettingsComponent({ sessionUuid, initialSettings }: DotVotingSettingsComponentProps) {
-  const { isConnected, isOwner } = useSessionDetail()
+  const { isConnected, canEdit } = useSessionDetail()
   const [inputValue, setInputValue] = useState<string>(
     initialSettings?.dotsPerVoter?.toString() || DEFAULT_DOT_VOTING_DOTS_PER_VOTER.toString(),
   )
@@ -63,11 +63,11 @@ export function DotVotingSettingsComponent({ sessionUuid, initialSettings }: Dot
     }
   }
 
-  if (!isOwner) {
+  if (!canEdit) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-gray-800">Dot Voting Settings</h2>
-        <p className="text-sm text-gray-600">Only the session owner can manage dot voting settings.</p>
+        <p className="text-sm text-gray-600">Only session editors can manage dot voting settings.</p>
       </div>
     )
   }

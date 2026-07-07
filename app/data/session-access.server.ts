@@ -8,7 +8,7 @@ type SessionAccessCheckAgent = {
     body: {
       hasAccess: boolean
       canEdit: boolean
-      isOwner: boolean
+      canManageSession: boolean
       permission: 'read' | 'write' | null
     }
   }>
@@ -28,8 +28,8 @@ export async function requireSessionAccessTier({
   const result = await (agent as SessionAccessCheckAgent).checkAccess({ userId })
   if (!result.ok) throw new Response('Forbidden', { status: 403 })
 
-  const { hasAccess, canEdit, isOwner } = result.body
-  const allowed = tier === 'read' ? hasAccess : tier === 'edit' ? canEdit : isOwner
+  const { hasAccess, canEdit, canManageSession } = result.body
+  const allowed = tier === 'read' ? hasAccess : tier === 'edit' ? canEdit : canManageSession
 
   if (!allowed) throw new Response('Forbidden', { status: 403 })
 }

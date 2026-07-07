@@ -82,7 +82,7 @@ export class ItemsChannelHandler extends BaseSessionChannelHandler<ItemsAction, 
     await validate({
       action: ITEMS_ACTIONS.GET_ALL,
       inputSchema: getAllItemsSchema,
-      agentMethod: () => this.agent.getAllItems(),
+      agentMethod: () => this.agent.getAllItems({ userId: channel.userId }),
       onSuccess: async (_payload, result) => {
         channel.reply<{ items: RoadmapItem[] }>(ITEMS_EVENTS.ALL_ITEMS, {
           items: result.body,

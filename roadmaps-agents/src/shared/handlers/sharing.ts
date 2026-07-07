@@ -3,7 +3,14 @@ import { dataError, dataSuccess } from 'utils/data'
 import type { UserAgent } from '../../user/user.agent'
 import { getSharingChannelName, SHARING_EVENTS } from '../channels'
 import { disconnectUserConnections } from '../disconnect-user-connections'
-import { buildAccessContext, canAccessSession, canEditSession, canManageSharing, type SessionAgent } from '../session-handlers'
+import {
+  buildAccessContext,
+  canAccessSession,
+  canEditSession,
+  canManageSharing,
+  canVote,
+  type SessionAgent,
+} from '../session-handlers'
 import type { SharingInfo } from '../session-schemas'
 import type { SharePermission } from '../types'
 
@@ -106,7 +113,9 @@ export async function checkAccess(this: SessionAgent, { userId }: { userId: stri
   return dataSuccess({
     hasAccess: canAccessSession(access),
     canEdit: canEditSession(access),
-    isOwner: canManageSharing(access),
+    canVote: canVote(access),
+    canManageSession: canManageSharing(access),
+    isLocked: this.getPrivateState().isLocked === true,
     permission: access.sharePermission ?? null,
   })
 }

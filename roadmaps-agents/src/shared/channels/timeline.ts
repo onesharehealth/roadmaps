@@ -33,7 +33,7 @@ export class TimelineChannelHandler extends BaseSessionChannelHandler<
       inputSchema: setRoadmapStatusSchema,
       agentMethod: (payload) => this.agent.setRoadmapStatus(withActingUser(channel, payload)),
       onSuccess: async () => {
-        const allItemsResult = await this.agent.getAllItemsByStatus()
+        const allItemsResult = await this.agent.getAllItemsByStatus({ userId: channel.userId })
         if (allItemsResult.ok) {
           await channel.broadcast<{
             itemsByStatus: Record<RoadmapStatus, RoadmapItem[]>
@@ -64,7 +64,7 @@ export class TimelineChannelHandler extends BaseSessionChannelHandler<
     await validate({
       action: ROADMAP_TIMELINE_ACTIONS.GET_TIMELINE_ITEMS,
       inputSchema: getAllItemsByStatusSchema,
-      agentMethod: () => this.agent.getAllItemsByStatus(),
+      agentMethod: () => this.agent.getAllItemsByStatus({ userId: channel.userId }),
       onSuccess: async (_payload, result) => {
         channel.reply<{ itemsByStatus: Record<RoadmapStatus, RoadmapItem[]> }>(
           ROADMAP_TIMELINE_EVENTS.TIMELINE_ITEMS,

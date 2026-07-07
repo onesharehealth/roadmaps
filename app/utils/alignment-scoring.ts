@@ -1,3 +1,5 @@
+import { useCallback, useMemo } from 'react'
+
 export type PropertyVote = {
   propertyUuid: string
   itemUuid: string
@@ -21,11 +23,70 @@ export interface AlignmentAnalysis {
   }
 }
 
-export function calculateAlignmentScore({
-  votes,
-}: {
-  votes: PropertyVote[]
-}): AlignmentAnalysis {
+function countByValue(values: number[]) {
+  const counts = new Map<number, number>()
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  return counts
+}
+
+function getPluralityValue(values: number[]) {
+  const counts = countByValue(values)
+  let bestValue = values[0]
+  let bestCount = 0
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count
+      bestValue = value
+    }
+  }
+  return { value: bestValue, count: bestCount }
+}
+
+function alignedResult(totalVotes: number, mainClusterSize: number): AlignmentAnalysis {
+  return {
+    score: 'aligned',
+    confidence: 0.8,
+    details: {
+      totalVotes,
+      clusteredVotes: totalVotes,
+      outlierVotes: 0,
+      coefficientOfVariation: 0,
+      interquartileRange: 0,
+      mainClusterSize,
+      mainClusterPercentage: mainClusterSize / totalVotes,
+    },
+  }
+}
+
+function evaluateTieredAlignment(values: number[]): AlignmentAnalysis | null {
+  const totalVotes = values.length
+  const min = values[0]
+  const max = values[values.length - 1]
+  const spread = max - min
+
+  if (spread <= 1) {
+    return alignedResult(totalVotes, totalVotes)
+  }
+
+  const { value: pluralityValue, count: pluralityCount } = getPluralityValue(values)
+  const majorityThreshold = totalVotes / 2
+  const strongPluralityThreshold = Math.ceil((2 * totalVotes) / 3)
+
+  const allDissentAdjacent = values.every((value) => Math.abs(value - pluralityValue) <= 1)
+  if (pluralityCount > majorityThreshold && allDissentAdjacent) {
+    return alignedResult(totalVotes, pluralityCount)
+  }
+
+  if (pluralityCount >= strongPluralityThreshold && spread <= 2) {
+    return alignedResult(totalVotes, pluralityCount)
+  }
+
+  return null
+}
+
+export function calculateAlignmentScore({ votes }: { votes: PropertyVote[] }): AlignmentAnalysis {
   const values = votes.map((vote) => vote.value).sort((a, b) => a - b)
   const totalVotes = values.length
 
@@ -62,9 +123,11 @@ export function calculateAlignmentScore({
     return analysis
   }
 
+  const tieredResult = evaluateTieredAlignment(values)
+  if (tieredResult) return tieredResult
+
   const mean = values.reduce((sum, val) => sum + val, 0) / totalVotes
-  const variance =
-    values.reduce((sum, val) => Math.pow(val - mean, 2), 0) / totalVotes
+  const variance = values.reduce((sum, val) => Math.pow(val - mean, 2), 0) / totalVotes
   const coefficientOfVariation = mean > 0 ? Math.sqrt(variance) / mean : 0
 
   const q1 = values[Math.floor(totalVotes * 0.25)]
@@ -75,7 +138,7 @@ export function calculateAlignmentScore({
   const outliers = values.filter((val) => val < lowerBound || val > upperBound)
 
   let maxClusterSize = 0
-  for (let center = 1; center <= 5; center += 0.5) {
+  for (let center = 0; center <= 4; center += 0.5) {
     const clustered = values.filter((val) => Math.abs(val - center) <= 0.5)
     if (clustered.length > maxClusterSize) maxClusterSize = clustered.length
   }
@@ -97,7 +160,7 @@ export function calculateAlignmentScore({
   if (mainClusterPercentage >= 0.75) alignmentScore += 0.3
   else alignmentScore -= 0.2
 
-  analysis.score = alignmentScore > 0.3 ? 'aligned' : 'not aligned'
+  analysis.score = alignmentScore >= 0.3 ? 'aligned' : 'not aligned'
   analysis.confidence = 0.7
   return analysis
 }

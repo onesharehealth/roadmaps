@@ -30,6 +30,14 @@ export function getGeneralChannelName(sessionUuid: string) {
   return `session:${sessionUuid}:general`
 }
 
+export function getSessionLockChannelName(sessionUuid: string) {
+  return `session:${sessionUuid}:session-lock`
+}
+
+export function getPropertyVotingSettingsChannelName(sessionUuid: string) {
+  return `session:${sessionUuid}:property-voting-settings`
+}
+
 export const ITEMS_ACTIONS = {
   CREATE: 'create',
   UPDATE: 'update',
@@ -63,10 +71,8 @@ export const ROADMAP_TIMELINE_EVENTS = {
   ERROR: 'error',
 } as const
 
-export type RoadmapTimelineAction =
-  (typeof ROADMAP_TIMELINE_ACTIONS)[keyof typeof ROADMAP_TIMELINE_ACTIONS]
-export type RoadmapTimelineEvent =
-  (typeof ROADMAP_TIMELINE_EVENTS)[keyof typeof ROADMAP_TIMELINE_EVENTS]
+export type RoadmapTimelineAction = (typeof ROADMAP_TIMELINE_ACTIONS)[keyof typeof ROADMAP_TIMELINE_ACTIONS]
+export type RoadmapTimelineEvent = (typeof ROADMAP_TIMELINE_EVENTS)[keyof typeof ROADMAP_TIMELINE_EVENTS]
 
 export const DOT_VOTES_ACTIONS = {
   CAST: 'cast',
@@ -83,10 +89,8 @@ export const DOT_VOTES_EVENTS = {
   ERROR: 'error',
 } as const
 
-export type DotVotesAction =
-  (typeof DOT_VOTES_ACTIONS)[keyof typeof DOT_VOTES_ACTIONS]
-export type DotVotesEvent =
-  (typeof DOT_VOTES_EVENTS)[keyof typeof DOT_VOTES_EVENTS]
+export type DotVotesAction = (typeof DOT_VOTES_ACTIONS)[keyof typeof DOT_VOTES_ACTIONS]
+export type DotVotesEvent = (typeof DOT_VOTES_EVENTS)[keyof typeof DOT_VOTES_EVENTS]
 
 export const DOT_VOTING_SETTINGS_ACTIONS = {
   GET_SETTINGS: 'getSettings',
@@ -104,8 +108,7 @@ export const DOT_VOTING_SETTINGS_EVENTS = {
 
 export type DotVotingSettingsAction =
   (typeof DOT_VOTING_SETTINGS_ACTIONS)[keyof typeof DOT_VOTING_SETTINGS_ACTIONS]
-export type DotVotingSettingsEvent =
-  (typeof DOT_VOTING_SETTINGS_EVENTS)[keyof typeof DOT_VOTING_SETTINGS_EVENTS]
+export type DotVotingSettingsEvent = (typeof DOT_VOTING_SETTINGS_EVENTS)[keyof typeof DOT_VOTING_SETTINGS_EVENTS]
 
 export const VOTING_PROPERTIES_ACTIONS = {
   CREATE: 'create',
@@ -124,10 +127,8 @@ export const VOTING_PROPERTIES_EVENTS = {
   ERROR: 'error',
 } as const
 
-export type VotingPropertiesAction =
-  (typeof VOTING_PROPERTIES_ACTIONS)[keyof typeof VOTING_PROPERTIES_ACTIONS]
-export type VotingPropertiesEvent =
-  (typeof VOTING_PROPERTIES_EVENTS)[keyof typeof VOTING_PROPERTIES_EVENTS]
+export type VotingPropertiesAction = (typeof VOTING_PROPERTIES_ACTIONS)[keyof typeof VOTING_PROPERTIES_ACTIONS]
+export type VotingPropertiesEvent = (typeof VOTING_PROPERTIES_EVENTS)[keyof typeof VOTING_PROPERTIES_EVENTS]
 
 export const PROPERTY_VOTES_ACTIONS = {
   CAST: 'cast',
@@ -144,10 +145,8 @@ export const PROPERTY_VOTES_EVENTS = {
   ERROR: 'error',
 } as const
 
-export type PropertyVotesAction =
-  (typeof PROPERTY_VOTES_ACTIONS)[keyof typeof PROPERTY_VOTES_ACTIONS]
-export type PropertyVotesEvent =
-  (typeof PROPERTY_VOTES_EVENTS)[keyof typeof PROPERTY_VOTES_EVENTS]
+export type PropertyVotesAction = (typeof PROPERTY_VOTES_ACTIONS)[keyof typeof PROPERTY_VOTES_ACTIONS]
+export type PropertyVotesEvent = (typeof PROPERTY_VOTES_EVENTS)[keyof typeof PROPERTY_VOTES_EVENTS]
 
 export const SHARING_ACTIONS = {
   GET_INFO: 'getInfo',
@@ -163,8 +162,7 @@ export const SHARING_EVENTS = {
   ERROR: 'error',
 } as const
 
-export type SharingAction =
-  (typeof SHARING_ACTIONS)[keyof typeof SHARING_ACTIONS]
+export type SharingAction = (typeof SHARING_ACTIONS)[keyof typeof SHARING_ACTIONS]
 export type SharingEvent = (typeof SHARING_EVENTS)[keyof typeof SHARING_EVENTS]
 
 export const GENERAL_EVENTS = {
@@ -172,7 +170,41 @@ export const GENERAL_EVENTS = {
   CONNECTED_USERS_UPDATED: 'connectedUsersUpdated',
   DOT_VOTING_SETTINGS_UPDATED: 'dotVotingSettingsUpdated',
   TIMELINE_SETTINGS_UPDATED: 'timelineSettingsUpdated',
+  SESSION_LOCK_UPDATED: 'sessionLockUpdated',
+  PROPERTY_VOTING_SETTINGS_UPDATED: 'propertyVotingSettingsUpdated',
   ERROR: 'error',
 } as const
 
 export type GeneralEvent = (typeof GENERAL_EVENTS)[keyof typeof GENERAL_EVENTS]
+
+export const SESSION_LOCK_ACTIONS = {
+  GET_LOCK: 'getLock',
+  SET_LOCK: 'setLock',
+} as const
+
+export const SESSION_LOCK_EVENTS = {
+  LOCK: 'lock',
+  GET_LOCK_CONFIRMED: 'getLockConfirmed',
+  SET_LOCK_CONFIRMED: 'setLockConfirmed',
+  ERROR: 'error',
+} as const
+
+export type SessionLockAction = (typeof SESSION_LOCK_ACTIONS)[keyof typeof SESSION_LOCK_ACTIONS]
+export type SessionLockEvent = (typeof SESSION_LOCK_EVENTS)[keyof typeof SESSION_LOCK_EVENTS]
+
+export const PROPERTY_VOTING_SETTINGS_ACTIONS = {
+  GET_SETTINGS: 'getSettings',
+  SET_SETTINGS: 'setSettings',
+} as const
+
+export const PROPERTY_VOTING_SETTINGS_EVENTS = {
+  SETTINGS: 'settings',
+  GET_SETTINGS_CONFIRMED: 'getSettingsConfirmed',
+  SET_SETTINGS_CONFIRMED: 'setSettingsConfirmed',
+  ERROR: 'error',
+} as const
+
+export type PropertyVotingSettingsAction =
+  (typeof PROPERTY_VOTING_SETTINGS_ACTIONS)[keyof typeof PROPERTY_VOTING_SETTINGS_ACTIONS]
+export type PropertyVotingSettingsEvent =
+  (typeof PROPERTY_VOTING_SETTINGS_EVENTS)[keyof typeof PROPERTY_VOTING_SETTINGS_EVENTS]

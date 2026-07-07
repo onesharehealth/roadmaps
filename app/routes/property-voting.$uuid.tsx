@@ -1,4 +1,4 @@
-import { Link, useLoaderData } from 'react-router'
+import { useLoaderData } from 'react-router'
 
 import { getAuthenticatedUser } from '~/auth/get-authenticated-user.server'
 import { SessionItemsBulkDialog } from '~/components/items/SessionItemsBulkDialog'
@@ -9,7 +9,7 @@ import { SessionShell } from '~/components/session/SessionShell'
 import { InteractivePropertyVoting } from '~/components/voting/InteractivePropertyVoting'
 import { handleSessionAction } from '~/data/session-actions.server'
 import { loadSessionContext } from '~/data/session-loader.server'
-import { useItems, usePropertyVotes, useVotingProperties } from '~/hooks'
+import { useItems, usePropertyVotes, usePropertyVotingSettings, useVotingProperties } from '~/hooks'
 import type { Route } from './+types/property-voting.$uuid'
 
 export const loader = async ({ params, context, request }: Route.LoaderArgs) => {
@@ -45,8 +45,19 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
 
 function PropertyVotingContent() {
   const loaderData = useLoaderData<typeof loader>()
-  const { isConnected, connectedUsers, sessionUuid, userEmail, sessionName, isOwner, canEdit } =
-    useSessionDetail()
+  const {
+    isConnected,
+    connectedUsers,
+    sessionUuid,
+    userEmail,
+    sessionName,
+    canManageSession,
+    canEdit,
+    isLocked,
+  } = useSessionDetail()
+
+  const canModify = canEdit && !isLocked
+  const settingsUuid = loaderData.uuid
 
   const { items, createItem, updateItem, deleteItem } = useItems({
     sessionUuid,
@@ -58,6 +69,11 @@ function PropertyVotingContent() {
     sessionUuid,
     userEmail,
     initialVotingProperties: loaderData.votingProperties,
+  })
+
+  const { settings: propertyVotingSettings } = usePropertyVotingSettings({
+    sessionUuid,
+    initialSettings: loaderData.propertyVotingSettings,
   })
 
   const { castPropertyVote, removePropertyVote, getCompletePropertyStats, completePropertyStats } =
@@ -75,23 +91,24 @@ function PropertyVotingContent() {
     <SessionShell
       sessionType="property_voting"
       sessionName={sessionName ?? loaderData.session.name}
-      isOwner={isOwner}
+      canManageSession={canManageSession}
       isConnected={isConnected}
+      isLocked={isLocked}
       teamId={loaderData.session.teamId}
       currentTeamName={loaderData.currentTeamName}
       teams={loaderData.teams}
       headerActions={
-        canEdit ? (
-          <>
+        <>
+          {canModify && (
             <SessionItemsBulkDialog
               items={items}
               linearEnabled={loaderData.linearEnabled}
               aiEnabled={loaderData.aiEnabled}
               onBulkCreate={handleBulkCreate}
             />
-            <SessionSettingsButton sessionType="property_voting" uuid={loaderData.uuid} />
-          </>
-        ) : undefined
+          )}
+          {canEdit && <SessionSettingsButton sessionType="property_voting" uuid={loaderData.uuid} />}
+        </>
       }
       help={{
         title: 'Alignment Voting',
@@ -101,20 +118,9 @@ function PropertyVotingContent() {
       {items.length === 0 ? (
         <div className="mx-auto max-w-[720px] rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-gray-500">
           <p>No items available for voting.</p>
-          {canEdit && (
+          {canModify && (
             <p className="mt-2 text-sm">
               Use <strong>Add items</strong> to import from Linear or paste multiple titles.
-            </p>
-          )}
-        </div>
-      ) : votingProperties.length === 0 ? (
-        <div className="mx-auto max-w-[720px] rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-gray-500">
-          <p>No voting properties yet.</p>
-          {canEdit && (
-            <p className="mt-1 text-sm">
-              <Link to={`/property-voting/${loaderData.uuid}/settings`} className="text-primary underline">
-                Add properties in settings
-              </Link>
             </p>
           )}
         </div>
@@ -125,12 +131,15 @@ function PropertyVotingContent() {
             votingProperties={votingProperties}
             userEmail={userEmail}
             isConnected={isConnected}
+            isLocked={isLocked}
             connectedUsers={connectedUsers}
             completePropertyStats={completePropertyStats}
             onPropertyVote={castPropertyVote}
             onRemovePropertyVote={removePropertyVote}
             onGetCompletePropertyStats={getCompletePropertyStats}
-            canEdit={canEdit}
+            canEdit={canModify}
+            settingsUuid={settingsUuid}
+            requireAllVotersPresent={propertyVotingSettings.requireAllVotersPresent}
             onCreateItem={createItem}
             onUpdateItem={updateItem}
             onDeleteItem={deleteItem}
@@ -154,7 +163,8 @@ export default function PropertyVotingSessionPage() {
         initialSessionName={data.session.name}
         canEdit={data.canEdit}
         canVote={data.canVote}
-        isOwner={data.isOwner}
+        canManageSession={data.canManageSession}
+        initialIsLocked={data.isLocked}
         initialSharingInfo={data.sharingInfo}
       >
         <PropertyVotingContent />

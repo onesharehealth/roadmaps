@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { sessionPath } from '~/utils/sessions'
-import { getLocationLabel, getLocationValue,SessionLocationDialog } from './SessionLocation'
+import { getLocationLabel, getLocationValue, SessionLocationDialog } from './SessionLocation'
 
 type SessionListActionsMenuProps = {
   uuid: string
@@ -20,7 +20,7 @@ type SessionListActionsMenuProps = {
   currentTeamId: string | null
   currentTeamName: string | null
   teams: Array<{ id: string; name: string }>
-  isOwner: boolean
+  canManageSession: boolean
 }
 
 export function SessionListActionsMenu({
@@ -30,13 +30,13 @@ export function SessionListActionsMenu({
   currentTeamId,
   currentTeamName,
   teams,
-  isOwner,
+  canManageSession,
 }: SessionListActionsMenuProps) {
   const fetcher = useFetcher()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [moveDialogOpen, setMoveDialogOpen] = useState(false)
   const isDeleting = fetcher.state !== 'idle'
-  const canMove = isOwner && teams.length > 0
+  const canMove = canManageSession && teams.length > 0
   const currentLocation = getLocationValue(currentTeamId)
   const locationLabel = getLocationLabel({ teamId: currentTeamId, currentTeamName })
 

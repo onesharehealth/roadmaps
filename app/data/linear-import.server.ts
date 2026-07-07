@@ -12,13 +12,35 @@ import {
   linearIssuesForLLM,
   linearIssueToMarkdownSimple,
 } from '../utils/linear.server'
+import { getSystemAgent } from './agents.server'
 
 type SessionAgent = TimelineSessionAgent | DotVotingSessionAgent | PropertyVotingSessionAgent
 
 type ItemWithExternalId = { uuid: string; externalId?: string | null }
 
-export async function fetchLinearMetadata(env: RequiredEnvVars) {
+async function assertLinearImportAccess(env: RequiredEnvVars, userEmail: string) {
   if (!env.LINEAR_API_KEY) return { error: 'Linear is not configured' as const }
+
+  const system = await getSystemAgent(env)
+  const user = await system.getUserByEmail(userEmail)
+  if (!user.ok || !user.body) {
+    return { error: 'Linear import is not enabled for your account' as const }
+  }
+
+  if (user.body.role === 'app_admin' && user.body.status === 'active') {
+    return null
+  }
+
+  if (!user.body.linearImportEnabled) {
+    return { error: 'Linear import is not enabled for your account' as const }
+  }
+
+  return null
+}
+
+export async function fetchLinearMetadata(env: RequiredEnvVars, userEmail: string) {
+  const accessError = await assertLinearImportAccess(env, userEmail)
+  if (accessError) return accessError
 
   try {
     const apiKey = getLinearApiKey(env)
@@ -45,6 +67,7 @@ export async function fetchLinearMetadata(env: RequiredEnvVars) {
 
 export async function fetchLinearIssuesForImport(
   env: RequiredEnvVars,
+  userEmail: string,
   filters: {
     projectId?: string
     label?: string
@@ -53,7 +76,8 @@ export async function fetchLinearIssuesForImport(
     searchQuery?: string
   },
 ) {
-  if (!env.LINEAR_API_KEY) return { error: 'Linear is not configured' as const }
+  const accessError = await assertLinearImportAccess(env, userEmail)
+  if (accessError) return accessError
 
   try {
     const apiKey = getLinearApiKey(env)
@@ -95,6 +119,9 @@ export async function importLinearIssuesToSession({
   importOption: 'skip' | 'overwrite'
   summarize: boolean
 }) {
+  const accessError = await assertLinearImportAccess(env, userEmail)
+  if (accessError) return { ok: false as const, error: accessError.error }
+
   if (!env.LINEAR_API_KEY) return { ok: false as const, error: 'Linear is not configured' }
 
   try {
@@ -107,12 +134,12 @@ export async function importLinearIssuesToSession({
 
     const existingResult = await (
       agent as {
-        getAllItems: () => Promise<{
+        getAllItems: (args: { userId: string }) => Promise<{
           ok: boolean
           body?: ItemWithExternalId[]
         }>
       }
-    ).getAllItems()
+    ).getAllItems({ userId: userEmail })
     const existingItems = existingResult.ok ? (existingResult.body ?? []) : []
     const externalIdMap = new Map(
       existingItems.filter((item) => item.externalId).map((item) => [item.externalId as string, item]),

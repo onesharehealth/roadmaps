@@ -2,7 +2,8 @@ import { dataError, dataSuccess } from 'utils/data'
 import { zParse } from 'utils/zod'
 
 import { getPropertyVotesChannelName, PROPERTY_VOTES_EVENTS } from '../channels'
-import { buildAccessContext, canVote, type SessionAgent } from '../session-handlers'
+import { buildAccessContext, canAccessSession, canVote, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 import {
   type CompletePropertyStats,
   completePropertyStatsSchema,
@@ -28,6 +29,9 @@ export async function castPropertyVote(
 ) {
   const access = await buildAccessContext(this, userId)
   if (!canVote(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const propertyExists = this.ctx.storage.sql
     .exec(`SELECT 1 FROM voting_properties WHERE uuid = ?`, propertyUuid)
@@ -87,9 +91,12 @@ export async function getPropertyVoteStats(
   }: {
     propertyUuid: string
     itemUuid: string
-    userId?: string
+    userId: string
   },
 ) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   const votes = this.ctx.storage.sql
     .exec(
       `SELECT * FROM property_votes WHERE property_uuid = ? AND item_uuid = ? ORDER BY created_at DESC`,
@@ -145,6 +152,9 @@ export async function removePropertyVote(
   const access = await buildAccessContext(this, userId)
   if (!canVote(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   this.ctx.storage.sql.exec(
     `DELETE FROM property_votes WHERE property_uuid = ? AND item_uuid = ? AND username = ?`,
     propertyUuid,
@@ -159,7 +169,7 @@ export async function removePropertyVote(
     username: userId,
   })
 
-  const statsResult = await getPropertyVoteStats.call(this, { propertyUuid, itemUuid })
+  const statsResult = await getPropertyVoteStats.call(this, { propertyUuid, itemUuid, userId })
   if (statsResult.ok) {
     this.broadcastToChannel(channelName, PROPERTY_VOTES_EVENTS.STATS, { stats: statsResult.body })
   }
@@ -169,8 +179,11 @@ export async function removePropertyVote(
 
 export async function getCompletePropertyStats(
   this: SessionAgent,
-  { propertyUuid, userId }: { propertyUuid: string; userId?: string },
+  { propertyUuid, userId }: { propertyUuid: string; userId: string },
 ) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   const items = this.ctx.storage.sql.exec(`SELECT uuid FROM roadmap_items`).toArray()
   const itemStats: PropertyVoteStats[] = []
   const participationByItem: Record<string, number> = {}
@@ -199,7 +212,10 @@ export async function getCompletePropertyStats(
   return zParse(completePropertyStatsSchema, completeStats)
 }
 
-export async function getPropertyVotes(this: SessionAgent) {
+export async function getPropertyVotes(this: SessionAgent, { userId }: { userId: string }) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   const rows = this.ctx.storage.sql.exec(`SELECT * FROM property_votes`).toArray()
   const transformed = rows.map((vote) => ({
     propertyUuid: vote.property_uuid,

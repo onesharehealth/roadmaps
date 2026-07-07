@@ -86,7 +86,7 @@ export class VotingPropertiesChannelHandler extends BaseSessionChannelHandler<
     await validate({
       action: VOTING_PROPERTIES_ACTIONS.GET_ALL,
       inputSchema: getAllVotingPropertiesSchema,
-      agentMethod: () => this.agent.getAllVotingProperties(),
+      agentMethod: () => this.agent.getAllVotingProperties({ userId: channel.userId }),
       onSuccess: async (_payload, result) => {
         channel.reply<{ properties: VotingProperty[] }>(VOTING_PROPERTIES_EVENTS.ALL_PROPERTIES, {
           properties: result.body,

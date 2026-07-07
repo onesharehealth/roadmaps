@@ -24,17 +24,10 @@ function getVoteKey(vote: DotVote) {
 type DotVotingItemCardProps = {
   item: RoadmapItem
   dotStats?: DotVoteStats
-  onCastDotVote: (data: {
-    itemUuid: string
-    dotPositionX: number
-    dotPositionY: number
-  }) => void
-  onRemoveDotVote: (data: {
-    itemUuid: string
-    dotPositionX: number
-    dotPositionY: number
-  }) => void
+  onCastDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
+  onRemoveDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
   isConnected: boolean
+  votingEnabled?: boolean
   hasRemainingVotes: boolean
   userEmail: string
   canEdit?: boolean
@@ -51,17 +44,10 @@ type DotVotingAreaProps = {
   item: RoadmapItem
   dots: Array<{ x: number; y: number; id: string }>
   dotStats?: DotVoteStats
-  onCastDotVote: (data: {
-    itemUuid: string
-    dotPositionX: number
-    dotPositionY: number
-  }) => void
-  onRemoveDotVote: (data: {
-    itemUuid: string
-    dotPositionX: number
-    dotPositionY: number
-  }) => void
+  onCastDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
+  onRemoveDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
   isConnected: boolean
+  votingEnabled?: boolean
   hasRemainingVotes: boolean
   userEmail: string
   disabled?: boolean
@@ -74,6 +60,7 @@ function DotVotingArea({
   onCastDotVote,
   onRemoveDotVote,
   isConnected,
+  votingEnabled = true,
   hasRemainingVotes,
   userEmail,
   disabled,
@@ -83,7 +70,7 @@ function DotVotingArea({
   const svgRef = useRef<SVGSVGElement>(null)
 
   function handleAreaClick(e: React.MouseEvent<SVGSVGElement>) {
-    if (!isConnected || disabled || !svgRef.current) return
+    if (!isConnected || !votingEnabled || disabled || !svgRef.current) return
 
     const target = e.target as SVGElement
     if (target.tagName === 'circle') return
@@ -102,12 +89,9 @@ function DotVotingArea({
     })
   }
 
-  function handleDotClick(
-    e: React.MouseEvent,
-    dot: { x: number; y: number; id: string },
-  ) {
+  function handleDotClick(e: React.MouseEvent, dot: { x: number; y: number; id: string }) {
     e.stopPropagation()
-    if (!isConnected || disabled) return
+    if (!isConnected || !votingEnabled || disabled) return
     onRemoveDotVote({
       itemUuid: item.uuid,
       dotPositionX: dot.x,
@@ -118,15 +102,11 @@ function DotVotingArea({
   function handleAreaKeyDown(e: React.KeyboardEvent<SVGSVGElement>) {
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
-    if (!isConnected || disabled || !hasRemainingVotes || !svgRef.current)
-      return
+    if (!isConnected || !votingEnabled || disabled || !hasRemainingVotes || !svgRef.current) return
 
     const svg = svgRef.current
     const bbox = svg.getBoundingClientRect()
-    const pt = new DOMPoint(
-      bbox.left + bbox.width / 2,
-      bbox.top + bbox.height / 2,
-    )
+    const pt = new DOMPoint(bbox.left + bbox.width / 2, bbox.top + bbox.height / 2)
     const screenCTM = svg.getScreenCTM()
     if (!screenCTM) return
 
@@ -159,8 +139,8 @@ function DotVotingArea({
             disabled
               ? 'cursor-not-allowed opacity-50'
               : hasRemainingVotes
-              ? 'cursor-pointer'
-              : 'cursor-not-allowed'
+                ? 'cursor-pointer'
+                : 'cursor-not-allowed'
           }
           onClick={handleAreaClick}
           onKeyDown={handleAreaKeyDown}
@@ -180,11 +160,7 @@ function DotVotingArea({
           {dotStats &&
             dotStats.votes
               .filter(
-                (vote: DotVote) =>
-                  !dots.some(
-                    (d) =>
-                      d.x === vote.dotPositionX && d.y === vote.dotPositionY,
-                  ),
+                (vote: DotVote) => !dots.some((d) => d.x === vote.dotPositionX && d.y === vote.dotPositionY),
               )
               .map((vote: DotVote) => (
                 <FloatingTooltip
@@ -204,11 +180,7 @@ function DotVotingArea({
               ))}
 
           {dots.map((dot) => (
-            <FloatingTooltip
-              key={dot.id}
-              content="Your dot... click to remove"
-              maxWidth="max-content"
-            >
+            <FloatingTooltip key={dot.id} content="Your dot... click to remove" maxWidth="max-content">
               <circle
                 cx={dot.x}
                 cy={dot.y}
@@ -232,19 +204,13 @@ type VoteCounterProps = {
   dotColor?: string
 }
 
-function VoteCounter({
-  dots,
-  dotStats,
-  dotColor = DEFAULT_DOT_COLOR,
-}: VoteCounterProps) {
+function VoteCounter({ dots, dotStats, dotColor = DEFAULT_DOT_COLOR }: VoteCounterProps) {
   return (
     <div className="border-t border-gray-100 px-4 py-2">
       <div className="flex items-center gap-2 text-xs text-gray-600">
         <span className="font-medium">Your votes: {dots.length}</span>
         {dotStats && dotStats.totalVotes > 0 ? (
-          <span className="ml-auto text-gray-500">
-            Total: {dotStats.totalVotes}
-          </span>
+          <span className="ml-auto text-gray-500">Total: {dotStats.totalVotes}</span>
         ) : (
           <span className="ml-auto text-gray-400">No votes yet</span>
         )}
@@ -262,12 +228,7 @@ function VoteCounter({
         {dotStats &&
           dotStats.votes.length > 0 &&
           dotStats.votes
-            .filter(
-              (vote: DotVote) =>
-                !dots.some(
-                  (d) => d.x === vote.dotPositionX && d.y === vote.dotPositionY,
-                ),
-            )
+            .filter((vote: DotVote) => !dots.some((d) => d.x === vote.dotPositionX && d.y === vote.dotPositionY))
             .map((vote: DotVote) => (
               <div
                 key={getVoteKey(vote)}
@@ -287,15 +248,14 @@ export function DotVotingItemCard({
   onCastDotVote,
   onRemoveDotVote,
   isConnected,
+  votingEnabled = true,
   hasRemainingVotes,
   userEmail,
   canEdit = false,
   onUpdateItem,
   onDeleteItem,
 }: DotVotingItemCardProps) {
-  const [dots, setDots] = useState<Array<{ x: number; y: number; id: string }>>(
-    [],
-  )
+  const [dots, setDots] = useState<Array<{ x: number; y: number; id: string }>>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(item.title)
@@ -340,7 +300,7 @@ export function DotVotingItemCard({
 
   return (
     <div
-      className="flex h-full flex-col rounded-lg border border-gray-200 border-l-4 border-l-slate-300 bg-white shadow-sm transition-shadow hover:shadow-md"
+      className="flex h-full flex-col rounded-lg border border-l-4 border-gray-200 border-l-slate-300 bg-white shadow-sm transition-shadow hover:shadow-md"
       ref={containerRef}
     >
       <div className="flex flex-1 flex-col p-4">
@@ -353,37 +313,19 @@ export function DotVotingItemCard({
                 onTitleChange={setEditTitle}
                 onDescriptionChange={setEditDescription}
               />
-              <EstimateSelect
-                value={editEstimate}
-                onChange={setEditEstimate}
-              />
+              <EstimateSelect value={editEstimate} onChange={setEditEstimate} />
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSaveEdit}
-                  disabled={!editTitle.trim()}
-                >
+                <Button type="button" size="sm" onClick={handleSaveEdit} disabled={!editTitle.trim()}>
                   Save
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsEditing(false)}
-                >
+                <Button type="button" size="sm" variant="outline" onClick={() => setIsEditing(false)}>
                   Cancel
                 </Button>
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setIsDialogOpen(true)}
-              className="flex-1 text-left"
-            >
-              <h4 className="cursor-pointer font-semibold text-blue-600 hover:underline">
-                {item.title}
-              </h4>
+            <button onClick={() => setIsDialogOpen(true)} className="flex-1 text-left">
+              <h4 className="cursor-pointer font-semibold text-blue-600 hover:underline">{item.title}</h4>
             </button>
           )}
           {canEdit && onUpdateItem && onDeleteItem && !isEditing && (
@@ -398,10 +340,7 @@ export function DotVotingItemCard({
         </div>
 
         {!isEditing && item.description && (
-          <p
-            className="line-clamp-4 text-sm text-gray-600"
-            title={item.description}
-          >
+          <p className="line-clamp-4 text-sm text-gray-600" title={item.description}>
             {item.description}
           </p>
         )}
@@ -409,11 +348,7 @@ export function DotVotingItemCard({
           <div className="mt-2 flex flex-wrap gap-2">
             <Estimate estimate={item.estimate} />
             {item.labels?.map((label) => (
-              <Tag
-                key={label.id}
-                text={label.text}
-                color={label.color}
-              />
+              <Tag key={label.id} text={label.text} color={label.color} />
             ))}
           </div>
         )}
@@ -427,22 +362,16 @@ export function DotVotingItemCard({
           onCastDotVote={onCastDotVote}
           onRemoveDotVote={onRemoveDotVote}
           isConnected={isConnected}
+          votingEnabled={votingEnabled}
           hasRemainingVotes={hasRemainingVotes}
           userEmail={userEmail}
           disabled={isEditing}
         />
       </div>
 
-      <VoteCounter
-        dots={dots}
-        dotStats={dotStats}
-        dotColor={DEFAULT_DOT_COLOR}
-      />
+      <VoteCounter dots={dots} dotStats={dotStats} dotColor={DEFAULT_DOT_COLOR} />
 
-      <Dialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-      >
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent
           showCloseButton={false}
           className="max-h-[90vh] max-w-2xl gap-0 overflow-y-auto p-0 sm:max-w-2xl"
@@ -461,30 +390,20 @@ export function DotVotingItemCard({
           <div className="p-6">
             {item.description && (
               <div className="mb-4 border-b border-gray-200 pb-4">
-                <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                  Description
-                </h3>
-                <p className="whitespace-pre-wrap text-gray-700">
-                  {item.description}
-                </p>
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">Description</h3>
+                <p className="whitespace-pre-wrap text-gray-700">{item.description}</p>
               </div>
             )}
 
             <div className="mb-4 flex items-center gap-2 border-b border-gray-200 pb-4">
               <Estimate estimate={item.estimate} />
               {item.labels?.map((label) => (
-                <Tag
-                  key={label.id}
-                  text={label.text}
-                  color={label.color}
-                />
+                <Tag key={label.id} text={label.text} color={label.color} />
               ))}
             </div>
 
             <div className="mb-4 border-b border-gray-200 pb-4">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                Voting
-              </h3>
+              <h3 className="mb-3 text-sm font-semibold text-gray-700">Voting</h3>
               <div className="mx-auto mb-3 max-w-[350px]">
                 <DotVotingArea
                   item={item}
@@ -493,25 +412,18 @@ export function DotVotingItemCard({
                   onCastDotVote={onCastDotVote}
                   onRemoveDotVote={onRemoveDotVote}
                   isConnected={isConnected}
+                  votingEnabled={votingEnabled}
                   hasRemainingVotes={hasRemainingVotes}
                   userEmail={userEmail}
                 />
               </div>
-              <VoteCounter
-                dots={dots}
-                dotStats={dotStats}
-                dotColor={DEFAULT_DOT_COLOR}
-              />
+              <VoteCounter dots={dots} dotStats={dotStats} dotColor={DEFAULT_DOT_COLOR} />
             </div>
 
             {item.externalContent && (
               <div>
-                <h3 className="mb-3 text-sm font-semibold text-gray-700">
-                  Details
-                </h3>
-                <MarkdownContent className="rounded-md bg-gray-50 p-4">
-                  {item.externalContent}
-                </MarkdownContent>
+                <h3 className="mb-3 text-sm font-semibold text-gray-700">Details</h3>
+                <MarkdownContent className="rounded-md bg-gray-50 p-4">{item.externalContent}</MarkdownContent>
               </div>
             )}
           </div>

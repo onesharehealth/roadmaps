@@ -2,6 +2,7 @@ import { useLoaderData } from 'react-router'
 
 import { SessionConnectionProvider } from '~/components/session/SessionConnectionContext'
 import { SessionDetailProvider } from '~/components/session/SessionDetailContext'
+import { SessionLockSection } from '~/components/session/SessionLockSection'
 import { SessionSettingsLayout } from '~/components/session/SessionSettingsLayout'
 import { SessionSettingsSections } from '~/components/session/SessionSettingsSections'
 import { DotVotingSettingsComponent } from '~/components/voting/DotVotingSettingsComponent'
@@ -19,7 +20,7 @@ export const loader = async ({ params, context }: Route.LoaderArgs) => {
     sessionType: 'dot_voting',
   })
 
-  if (!data.isOwner) throw new Response('Forbidden', { status: 403 })
+  if (!data.canEdit) throw new Response('Forbidden', { status: 403 })
 
   return data
 }
@@ -50,12 +51,17 @@ export default function VotingSessionSettingsPage() {
         initialSessionName={data.session.name}
         canEdit={data.canEdit}
         canVote={data.canVote}
-        isOwner={data.isOwner}
+        canManageSession={data.canManageSession}
+        initialIsLocked={data.isLocked}
         initialSharingInfo={data.sharingInfo}
       >
         <SessionSettingsLayout backTo={`/voting/${data.uuid}`} title="Dot voting settings">
           <SessionSettingsSections>
             <DotVotingSettingsComponent sessionUuid={data.uuid} initialSettings={data.dotVotingSettings} />
+            <SessionLockSection
+              sessionUuid={data.uuid}
+              initialLock={{ isLocked: data.isLocked, lockedAt: null }}
+            />
           </SessionSettingsSections>
         </SessionSettingsLayout>
       </SessionDetailProvider>
