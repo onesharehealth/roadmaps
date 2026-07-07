@@ -46,7 +46,9 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
 
 function RoadmapSessionContent() {
   const loaderData = useLoaderData<typeof loader>()
-  const { isConnected, sessionUuid, userEmail, sessionName, canEdit, isOwner } = useSessionDetail()
+  const { isConnected, sessionUuid, userEmail, sessionName, canEdit, canManageSession, isLocked } =
+    useSessionDetail()
+  const canModify = canEdit && !isLocked
 
   const { items, createItem, updateItem, deleteItem } = useItems({
     sessionUuid,
@@ -75,23 +77,24 @@ function RoadmapSessionContent() {
     <SessionShell
       sessionType="timeline"
       sessionName={sessionName ?? loaderData.session.name}
-      isOwner={isOwner}
+      canManageSession={canManageSession}
       isConnected={isConnected}
+      isLocked={isLocked}
       teamId={loaderData.session.teamId}
       currentTeamName={loaderData.currentTeamName}
       teams={loaderData.teams}
       headerActions={
-        canEdit ? (
-          <>
+        <>
+          {canModify && (
             <SessionItemsBulkDialog
               items={items}
               linearEnabled={loaderData.linearEnabled}
               aiEnabled={loaderData.aiEnabled}
               onBulkCreate={handleBulkCreate}
             />
-            <SessionSettingsButton sessionType="timeline" uuid={loaderData.uuid} />
-          </>
-        ) : undefined
+          )}
+          {canEdit && <SessionSettingsButton sessionType="timeline" uuid={loaderData.uuid} />}
+        </>
       }
       help={{
         title: 'Roadmap',
@@ -99,14 +102,14 @@ function RoadmapSessionContent() {
         sections: [
           RoadmapZonesDescriptor({
             isConnected,
-            canReorder: canEdit,
+            canReorder: canModify,
           }),
         ],
       }}
     >
       <RoadmapZones
         itemsByStatus={itemsByStatus}
-        isConnected={isConnected}
+        isConnected={isConnected && !isLocked}
         timelineSettings={timelineSettings ?? undefined}
         onSetItemStatus={setItemStatus}
         onReorderTimelineItems={reorderTimelineItems}
@@ -142,7 +145,8 @@ export default function RoadmapSessionPage() {
         initialSessionName={data.session.name}
         canEdit={data.canEdit}
         canVote={data.canVote}
-        isOwner={data.isOwner}
+        canManageSession={data.canManageSession}
+        initialIsLocked={data.isLocked}
         initialSharingInfo={data.sharingInfo}
       >
         <RoadmapSessionContent />

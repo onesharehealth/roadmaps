@@ -102,6 +102,7 @@ export class SystemAgent extends BaseWebSocketAgent<SystemAgentEnv, SystemState>
       role: row.role,
       status: row.status,
       mustChangePassword: Boolean(row.must_change_password),
+      linearImportEnabled: Boolean(row.linear_import_enabled),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     })
@@ -117,6 +118,7 @@ export class SystemAgent extends BaseWebSocketAgent<SystemAgentEnv, SystemState>
         role: row.role,
         status: row.status,
         mustChangePassword: Boolean(row.must_change_password),
+        linearImportEnabled: Boolean(row.linear_import_enabled),
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })
@@ -145,6 +147,21 @@ export class SystemAgent extends BaseWebSocketAgent<SystemAgentEnv, SystemState>
 
     const now = Math.floor(Date.now() / 1000)
     this.ctx.storage.sql.exec(`UPDATE users SET role = ?, updated_at = ? WHERE email = ?`, role, now, email)
+    return dataSuccess()
+  }
+
+  async updateUserLinearImportEnabled(email: string, enabled: boolean): Promise<DataResult<void>> {
+    const existing = await this.getUserByEmail(email)
+    if (!existing.ok) return dataError(existing.errors[0] ?? 'Failed to read user')
+    if (!existing.body) return dataError('User not found')
+
+    const now = Math.floor(Date.now() / 1000)
+    this.ctx.storage.sql.exec(
+      `UPDATE users SET linear_import_enabled = ?, updated_at = ? WHERE email = ?`,
+      enabled ? 1 : 0,
+      now,
+      email,
+    )
     return dataSuccess()
   }
 

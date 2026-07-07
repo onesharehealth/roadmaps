@@ -4,6 +4,7 @@ import type { TeamAgent } from '../../team/team.agent'
 import type { UserAgent } from '../../user/user.agent'
 import { GENERAL_EVENTS, getGeneralChannelName } from '../channels'
 import { buildAccessContext, canManageSharing, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 
 export async function renameSession(
   this: SessionAgent,
@@ -13,8 +14,10 @@ export async function renameSession(
   if (!trimmedName) return dataError('Name is required')
 
   const access = await buildAccessContext(this, actorEmail)
-  if (!canManageSharing(access))
-    return dataError('Only the owner can rename this session')
+  if (!canManageSharing(access)) return dataError('Only the owner can rename this session')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const state = this.state
   const uuid = state.uuid
@@ -37,17 +40,11 @@ export async function renameSession(
 
   const ps = this.getPrivateState()
   for (const shareEmail of Object.keys(ps.sharedWith)) {
-    const userAgent = this.env.USER_AGENT.get(
-      this.env.USER_AGENT.idFromName(shareEmail),
-    ) as unknown as UserAgent
+    const userAgent = this.env.USER_AGENT.get(this.env.USER_AGENT.idFromName(shareEmail)) as unknown as UserAgent
     await userAgent.updateSharedSessionName({ uuid, name: trimmedName })
   }
 
-  this.broadcastToChannel(
-    getGeneralChannelName(uuid),
-    GENERAL_EVENTS.NAME_UPDATED,
-    { name: trimmedName },
-  )
+  this.broadcastToChannel(getGeneralChannelName(uuid), GENERAL_EVENTS.NAME_UPDATED, { name: trimmedName })
 
   return dataSuccess()
 }

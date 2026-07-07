@@ -211,11 +211,11 @@ export async function handleSessionAction({
   }
 
   if (intent === 'fetch-linear-metadata') {
-    return fetchLinearMetadata(env)
+    return fetchLinearMetadata(env, user.email)
   }
 
   if (intent === 'fetch-linear-issues') {
-    return fetchLinearIssuesForImport(env, {
+    return fetchLinearIssuesForImport(env, user.email, {
       projectId: formData.get('projectId')?.toString(),
       label: formData.get('label')?.toString(),
       startDate: formData.get('startDate')?.toString(),
@@ -256,9 +256,9 @@ export async function handleSessionAction({
 
       const itemsResult = await (
         agent as {
-          getAllItems: () => ReturnType<TimelineSessionAgent['getAllItems']>
+          getAllItems: (args: { userId: string }) => ReturnType<TimelineSessionAgent['getAllItems']>
         }
-      ).getAllItems()
+      ).getAllItems({ userId: user.email })
       const item = itemsResult.ok ? itemsResult.body.find((i) => i.uuid === itemUuid) : null
 
       if (!item) {
@@ -334,7 +334,7 @@ export async function handleSessionAction({
       await previousTeam.removeTeamSession(uuid)
     }
 
-    await agent.setTeam(teamId)
+    await agent.setTeam({ teamId, actorEmail: user.email })
 
     await team.addTeamSession({
       uuid,
@@ -359,7 +359,7 @@ export async function handleSessionAction({
       await team.removeTeamSession(uuid)
     }
 
-    await agent.setTeam(null)
+    await agent.setTeam({ teamId: null, actorEmail: user.email })
 
     await getUserAgent(env, session.ownerEmail).then((ua) =>
       ua.addPersonalSession({

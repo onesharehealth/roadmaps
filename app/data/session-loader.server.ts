@@ -1,16 +1,15 @@
 import type {
   DotVotingSettings,
+  PropertyVotingSettings,
   RoadmapItem,
   RoadmapTimelineSettings,
   SessionPublicState,
   SessionType,
-  SharePermission,
   SharingInfo,
   VotingProperty,
 } from 'roadmaps-agents/schemas'
 
 import type { RequiredEnvVars } from '../../env-required'
-import { type AccessContext, canEditSession, canManageSharing, canVote } from '../../roadmaps-agents/src/shared/access'
 import type { SessionUser } from '../auth/session.server'
 import {
   getDotVotingSessionAgent,
@@ -41,58 +40,19 @@ export type SessionLoaderData = {
   sharingInfo: SharingInfo
   timelineSettings: RoadmapTimelineSettings | null
   dotVotingSettings: DotVotingSettings | null
+  propertyVotingSettings: PropertyVotingSettings | null
   votingProperties: VotingProperty[]
+  isLocked: boolean
   canEdit: boolean
   canVote: boolean
-  isOwner: boolean
+  canManageSession: boolean
   user: SessionUser
 }
 
-async function buildAccessContextFromAgent({
-  env,
-  session,
-  email,
-  userRole,
-}: {
-  env: RequiredEnvVars
-  session: SessionPublicState
-  email: string
-  userRole: SessionUser['role']
-}): Promise<AccessContext> {
-  let isTeamMember = false
-  let isTeamAdmin = false
-  let sharePermission: SharePermission | undefined
-  let ownerStatus: AccessContext['ownerStatus'] = 'deleted'
-
-  if (session.teamId) {
-    const team = await getTeamAgent(env, session.teamId)
-    isTeamMember = await team.isMember(email)
-    const role = await team.getMemberRole(email)
-    isTeamAdmin = role === 'admin'
-  }
-
-  const userAgent = await getUserAgent(env, email)
-  const dashboard = await userAgent.getDashboard()
-  if (dashboard.ok) {
-    const shared = dashboard.body.shared.find((entry) => entry.uuid === session.uuid)
-    if (shared?.permission === 'read' || shared?.permission === 'write') {
-      sharePermission = shared.permission
-    }
-  }
-
+async function userHasLinearImport(env: RequiredEnvVars, email: string) {
   const system = await getSystemAgent(env)
-  const owner = await system.getUserByEmail(session.ownerEmail)
-  if (owner.ok && owner.body) ownerStatus = owner.body.status
-
-  return {
-    userId: email,
-    isOwner: session.ownerEmail === email,
-    isAppAdmin: userRole === 'app_admin',
-    isTeamAdmin,
-    isTeamMember,
-    ownerStatus,
-    sharePermission,
-  }
+  const user = await system.getUserByEmail(email)
+  return user.ok && Boolean(user.body?.linearImportEnabled)
 }
 
 export async function loadSessionContext({
@@ -103,30 +63,34 @@ export async function loadSessionContext({
 }: LoadSessionContextArgs): Promise<SessionLoaderData> {
   const agent = await getSessionAgent(env, sessionType, uuid)
   type SessionAgentLike = {
-    userHasAccess: (email: string) => Promise<boolean>
     state: unknown
-    getAllItems: () => Promise<{ ok: boolean; body?: RoadmapItem[] }>
+    getAllItems: (args: { userId: string }) => Promise<{ ok: boolean; body?: RoadmapItem[] }>
     getSharingInfo: (args?: { userId?: string }) => Promise<{ ok: boolean; body?: SharingInfo }>
+    checkAccess: (args: { userId: string }) => Promise<{
+      ok: boolean
+      body?: {
+        hasAccess: boolean
+        canEdit: boolean
+        canVote: boolean
+        canManageSession: boolean
+        isLocked: boolean
+        permission: 'read' | 'write' | null
+      }
+    }>
   }
   const sessionAgent = agent as unknown as SessionAgentLike
 
-  const hasAccess = await sessionAgent.userHasAccess(user.email)
-  if (!hasAccess) throw new Response('Forbidden', { status: 403 })
+  const accessResult = await sessionAgent.checkAccess({ userId: user.email })
+  if (!accessResult.ok || !accessResult.body?.hasAccess) throw new Response('Forbidden', { status: 403 })
+  const access = accessResult.body
 
   const session = (await sessionAgent.state) as SessionPublicState
   if (!session?.uuid || !session.ownerEmail) {
     throw new Response('Session not found', { status: 404 })
   }
 
-  const itemsResult = await sessionAgent.getAllItems()
+  const itemsResult = await sessionAgent.getAllItems({ userId: user.email })
   const items = itemsResult.ok ? (itemsResult.body as RoadmapItem[]) : []
-
-  const access = await buildAccessContextFromAgent({
-    env,
-    session,
-    email: user.email,
-    userRole: user.role,
-  })
 
   const userAgent = await getUserAgent(env, user.email)
   const dashboard = await userAgent.getDashboard()
@@ -143,7 +107,8 @@ export async function loadSessionContext({
       )
     : []
 
-  const linearEnabled = Boolean(env.LINEAR_API_KEY)
+  const linearEnabled =
+    Boolean(env.LINEAR_API_KEY) && (user.role === 'app_admin' || (await userHasLinearImport(env, user.email)))
 
   const sharingResult = await sessionAgent.getSharingInfo({
     userId: user.email,
@@ -179,14 +144,28 @@ export async function loadSessionContext({
     sessionType === 'property_voting'
       ? await (
           (await getPropertyVotingSessionAgent(env, uuid)) as {
-            getAllVotingProperties: () => Promise<{
+            getAllVotingProperties: (args: { userId: string }) => Promise<{
               ok: boolean
               body?: VotingProperty[]
             }>
           }
-        ).getAllVotingProperties()
+        ).getAllVotingProperties({ userId: user.email })
       : null
   const votingProperties = votingPropertiesResult?.ok ? (votingPropertiesResult.body ?? []) : []
+
+  const propertyVotingSettingsResult =
+    sessionType === 'property_voting'
+      ? await (
+          (await getPropertyVotingSessionAgent(env, uuid)) as {
+            getPropertyVotingSettings: (args: {
+              userId: string
+            }) => Promise<{ ok: boolean; body?: PropertyVotingSettings }>
+          }
+        ).getPropertyVotingSettings({ userId: user.email })
+      : null
+  const propertyVotingSettings = propertyVotingSettingsResult?.ok
+    ? (propertyVotingSettingsResult.body ?? null)
+    : null
 
   let currentTeamName: string | null = null
   if (session.teamId) {
@@ -207,10 +186,12 @@ export async function loadSessionContext({
     sharingInfo,
     timelineSettings,
     dotVotingSettings,
+    propertyVotingSettings,
     votingProperties,
-    canEdit: canEditSession(access),
-    canVote: canVote(access),
-    isOwner: canManageSharing(access),
+    isLocked: access.isLocked,
+    canEdit: access.canEdit,
+    canVote: access.canVote,
+    canManageSession: access.canManageSession,
     user,
   }
 }

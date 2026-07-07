@@ -1,7 +1,7 @@
 import type { Connection, ConnectionContext } from 'agents'
 import { sharedMigrations } from 'utils'
 import { Lock, migrateAgent } from 'utils/agents'
-import { dataSuccess } from 'utils/data'
+import { dataError, dataSuccess } from 'utils/data'
 import { BaseWebSocketAgent, type ChannelDefinition, TestChannelHandler } from 'websockets/server'
 
 import {
@@ -10,6 +10,8 @@ import {
   getGeneralChannelName,
   getItemsChannelName,
   getPropertyVotesChannelName,
+  getPropertyVotingSettingsChannelName,
+  getSessionLockChannelName,
   getSharingChannelName,
   getTimelineChannelName,
   getVotingPropertiesChannelName,
@@ -19,6 +21,8 @@ import { DotVotingSettingsChannelHandler } from './shared/channels/dot-voting-se
 import { GeneralChannelHandler } from './shared/channels/general'
 import { ItemsChannelHandler } from './shared/channels/items'
 import { PropertyVotesChannelHandler } from './shared/channels/property-votes'
+import { PropertyVotingSettingsChannelHandler } from './shared/channels/property-voting-settings'
+import { SessionLockChannelHandler } from './shared/channels/session-lock'
 import { SharingChannelHandler } from './shared/channels/sharing'
 import { TimelineChannelHandler } from './shared/channels/timeline'
 import { VotingPropertiesChannelHandler } from './shared/channels/voting-properties'
@@ -26,7 +30,9 @@ import * as dotVotesHandlers from './shared/handlers/dot-votes'
 import * as dotVotingSettingsHandlers from './shared/handlers/dot-voting-settings'
 import * as itemsHandlers from './shared/handlers/items'
 import * as propertyVotesHandlers from './shared/handlers/property-votes'
+import * as propertyVotingSettingsHandlers from './shared/handlers/property-voting-settings'
 import * as sessionLifecycleHandlers from './shared/handlers/session-lifecycle'
+import * as sessionLockHandlers from './shared/handlers/session-lock'
 import * as sessionOwnershipHandlers from './shared/handlers/session-ownership'
 import * as sessionRenameHandlers from './shared/handlers/session-rename'
 import * as sharingHandlers from './shared/handlers/sharing'
@@ -36,6 +42,7 @@ import * as votingPropertiesHandlers from './shared/handlers/voting-properties'
 import {
   buildAccessContext,
   canAccessSession,
+  canManageSharing,
   getSessionLastEditedAt,
   initializeSession,
   type SessionAgentEnv,
@@ -88,6 +95,7 @@ const SHARED_CHANNEL_DEFINITIONS = [
   { nameFn: getGeneralChannelName, Handler: GeneralChannelHandler },
   { nameFn: getItemsChannelName, Handler: ItemsChannelHandler },
   { nameFn: getSharingChannelName, Handler: SharingChannelHandler },
+  { nameFn: getSessionLockChannelName, Handler: SessionLockChannelHandler },
 ] as const
 
 const TIMELINE_CHANNEL_DEFINITIONS = [
@@ -110,6 +118,10 @@ const PROPERTY_VOTING_CHANNEL_DEFINITIONS = [
   {
     nameFn: getVotingPropertiesChannelName,
     Handler: VotingPropertiesChannelHandler,
+  },
+  {
+    nameFn: getPropertyVotingSettingsChannelName,
+    Handler: PropertyVotingSettingsChannelHandler,
   },
 ] as const
 
@@ -169,7 +181,10 @@ abstract class BaseSessionAgent extends BaseWebSocketAgent<
     return unshareSession(this as never, args)
   }
 
-  async setTeam(teamId: string | null) {
+  async setTeam({ teamId, actorEmail }: { teamId: string | null; actorEmail: string }) {
+    const access = await buildAccessContext(this as never, actorEmail)
+    if (!canManageSharing(access)) return dataError('Permission denied')
+
     await this.setState({ ...this.state, teamId })
     return dataSuccess()
   }
@@ -187,13 +202,7 @@ abstract class BaseSessionAgent extends BaseWebSocketAgent<
     })
   }
 
-  async transferSessionOwnership({
-    actorEmail,
-    newOwnerEmail,
-  }: {
-    actorEmail: string
-    newOwnerEmail: string
-  }) {
+  async transferSessionOwnership({ actorEmail, newOwnerEmail }: { actorEmail: string; newOwnerEmail: string }) {
     return sessionOwnershipHandlers.transferOwnership.call(this as never, {
       actorEmail,
       newOwnerEmail,
@@ -363,6 +372,8 @@ declare module './session-agents' {
     getAllItemsByStatus: typeof timelineHandlers.getAllItemsByStatus
     getTimelineSettings: typeof timelineSettingsHandlers.getTimelineSettings
     updateTimelineSettings: typeof timelineSettingsHandlers.updateTimelineSettings
+    getSessionLock: typeof sessionLockHandlers.getSessionLock
+    setSessionLock: typeof sessionLockHandlers.setSessionLock
     shareWith: typeof sharingHandlers.shareWith
     removeShare: typeof sharingHandlers.removeShare
     getSharingInfo: typeof sharingHandlers.getSharingInfo
@@ -388,6 +399,8 @@ declare module './session-agents' {
     getDotVotingSettings: typeof dotVotingSettingsHandlers.getDotVotingSettings
     setDotVotingSettings: typeof dotVotingSettingsHandlers.setDotVotingSettings
     resetDotVotes: typeof dotVotingSettingsHandlers.resetDotVotes
+    getSessionLock: typeof sessionLockHandlers.getSessionLock
+    setSessionLock: typeof sessionLockHandlers.setSessionLock
     shareWith: typeof sharingHandlers.shareWith
     removeShare: typeof sharingHandlers.removeShare
     getSharingInfo: typeof sharingHandlers.getSharingInfo
@@ -416,6 +429,10 @@ declare module './session-agents' {
     getVotingProperty: typeof votingPropertiesHandlers.getVotingProperty
     getAllVotingProperties: typeof votingPropertiesHandlers.getAllVotingProperties
     reorderVotingProperties: typeof votingPropertiesHandlers.reorderVotingProperties
+    getPropertyVotingSettings: typeof propertyVotingSettingsHandlers.getPropertyVotingSettings
+    setPropertyVotingSettings: typeof propertyVotingSettingsHandlers.setPropertyVotingSettings
+    getSessionLock: typeof sessionLockHandlers.getSessionLock
+    setSessionLock: typeof sessionLockHandlers.setSessionLock
     shareWith: typeof sharingHandlers.shareWith
     removeShare: typeof sharingHandlers.removeShare
     getSharingInfo: typeof sharingHandlers.getSharingInfo
@@ -434,6 +451,10 @@ function bindSharedHandlers(agentClass: typeof TimelineSessionAgent) {
 
 bindSharedHandlers(TimelineSessionAgent)
 
+BaseWebSocketAgent.bindHandlersToPrototype(TimelineSessionAgent, sessionLockHandlers)
+BaseWebSocketAgent.bindHandlersToPrototype(DotVotingSessionAgent, sessionLockHandlers)
+BaseWebSocketAgent.bindHandlersToPrototype(PropertyVotingSessionAgent, sessionLockHandlers)
+
 BaseWebSocketAgent.bindHandlersToPrototype(DotVotingSessionAgent, itemsHandlers)
 BaseWebSocketAgent.bindHandlersToPrototype(DotVotingSessionAgent, sharingHandlers)
 
@@ -450,3 +471,4 @@ BaseWebSocketAgent.bindHandlersToPrototype(DotVotingSessionAgent, dotVotingSetti
 // Property voting handlers
 BaseWebSocketAgent.bindHandlersToPrototype(PropertyVotingSessionAgent, propertyVotesHandlers)
 BaseWebSocketAgent.bindHandlersToPrototype(PropertyVotingSessionAgent, votingPropertiesHandlers)
+BaseWebSocketAgent.bindHandlersToPrototype(PropertyVotingSessionAgent, propertyVotingSettingsHandlers)

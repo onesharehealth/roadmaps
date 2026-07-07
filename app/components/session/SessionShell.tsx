@@ -8,12 +8,13 @@ import { ConnectionStatus } from './ConnectionStatus'
 import { SessionEditableTitle } from './SessionEditableTitle'
 import { SessionHelpPopover } from './SessionHelpPopover'
 import { SessionLocation } from './SessionLocation'
+import { SessionLockedBanner } from './SessionLockedBanner'
 import type { SessionPageHeaderProps } from './SessionPageHeader'
 
 type SessionShellProps = {
   sessionType: SessionType
   sessionName: string
-  isOwner: boolean
+  canManageSession: boolean
   canRename?: boolean
   isConnected: boolean
   teamId: string | null
@@ -25,13 +26,14 @@ type SessionShellProps = {
   iconSize?: 'sm' | 'lg' | number
   /** Badge container size in pixels for the header icon. Defaults to 48. */
   iconBadgeSize?: number
+  isLocked?: boolean
   children: ReactNode
 }
 
 export function SessionShell({
   sessionType,
   sessionName,
-  isOwner,
+  canManageSession,
   canRename,
   isConnected,
   teamId,
@@ -41,6 +43,7 @@ export function SessionShell({
   help,
   iconSize = 24,
   iconBadgeSize = 36,
+  isLocked = false,
   children,
 }: SessionShellProps) {
   const title = sessionName || sessionTypeLabels[sessionType]
@@ -49,31 +52,24 @@ export function SessionShell({
   return (
     <div className="page-session">
       <div className="mb-6">
-        <Link
-          to="/"
-          className="link-back"
-        >
+        <Link to="/" className="link-back">
           ← Home
         </Link>
 
         <div className="mt-4 sm:flex sm:items-start sm:justify-between sm:gap-4">
           <div className="flex min-w-0 items-start gap-3">
-            <SessionTypeIconBadge
-              sessionType={sessionType}
-              iconSize={iconSize}
-              badgeSize={iconBadgeSize}
-            />
+            <SessionTypeIconBadge sessionType={sessionType} iconSize={iconSize} badgeSize={iconBadgeSize} />
             <div className="min-w-0">
               <SessionEditableTitle
                 sessionName={title}
-                canRename={canRename ?? isOwner}
+                canRename={(canRename ?? canManageSession) && !isLocked}
               />
               <SessionLocation
                 teamId={teamId}
                 currentTeamName={currentTeamName}
                 teams={teams}
                 sessionName={sessionName}
-                isOwner={isOwner}
+                canManageSession={canManageSession}
                 isConnected={isConnected}
               />
             </div>
@@ -88,6 +84,8 @@ export function SessionShell({
       </div>
 
       <ConnectionStatus />
+
+      <SessionLockedBanner isLocked={isLocked} />
 
       {children}
     </div>

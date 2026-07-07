@@ -13,8 +13,10 @@ import type {
   CompleteDotStats,
   CompletePropertyStats,
   DotVotingSettings,
+  PropertyVotingSettings,
   RoadmapItem,
   RoadmapTimelineSettings,
+  SessionLockState,
   SessionPublicState,
   SessionType,
   SharingInfo,
@@ -28,9 +30,11 @@ import { type SessionConnectionContextType, useSessionConnection } from './Sessi
 export type SessionDetailInitialState = {
   items: { items: RoadmapItem[] }
   sharingInfo?: SharingInfo
+  sessionLock?: SessionLockState
   dotVoteStats?: CompleteDotStats
   dotVotingSettings?: DotVotingSettings
   timelineSettings?: RoadmapTimelineSettings
+  propertyVotingSettings?: PropertyVotingSettings
   votingProperties?: { properties: VotingProperty[] }
   completePropertyStats?: Record<string, CompletePropertyStats>
 }
@@ -45,7 +49,8 @@ export interface SessionDetailContextType extends SessionConnectionContextType {
   sessionName: string | null
   canEdit: boolean
   canVote: boolean
-  isOwner: boolean
+  canManageSession: boolean
+  isLocked: boolean
   sharingInfo: SharingInfo
 }
 
@@ -67,7 +72,8 @@ type SessionDetailProviderProps = {
   initialSessionName: string
   canEdit: boolean
   canVote: boolean
-  isOwner: boolean
+  canManageSession: boolean
+  initialIsLocked?: boolean
   initialSharingInfo: SharingInfo
 }
 
@@ -79,7 +85,8 @@ export function SessionDetailProvider({
   initialSessionName,
   canEdit,
   canVote,
-  isOwner,
+  canManageSession,
+  initialIsLocked = false,
   initialSharingInfo,
 }: SessionDetailProviderProps) {
   const navigate = useNavigate()
@@ -89,6 +96,7 @@ export function SessionDetailProvider({
   const [isBootstrapped, setIsBootstrapped] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [sessionName, setSessionName] = useState<string | null>(initialSessionName)
+  const [isLocked, setIsLocked] = useState(initialIsLocked)
 
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
@@ -104,6 +112,8 @@ export function SessionDetailProvider({
         setInitialState(data.data)
         setIsBootstrapped(true)
         setConnectionError(null)
+        const sessionLock = data.data.sessionLock as SessionLockState | undefined
+        if (sessionLock) setIsLocked(sessionLock.isLocked)
       }
 
       if (data.type === 'channel') {
@@ -111,6 +121,11 @@ export function SessionDetailProvider({
 
         if (channel?.includes(':general') && action === GENERAL_EVENTS.NAME_UPDATED && payload?.name) {
           setSessionName(payload.name)
+        }
+
+        if (channel?.includes(':general') && action === GENERAL_EVENTS.SESSION_LOCK_UPDATED) {
+          const lockState = payload as SessionLockState
+          setIsLocked(lockState.isLocked)
         }
       }
     } catch (error) {
@@ -167,7 +182,8 @@ export function SessionDetailProvider({
       sessionName,
       canEdit,
       canVote,
-      isOwner,
+      canManageSession,
+      isLocked,
       sharingInfo,
     }),
     [
@@ -181,7 +197,8 @@ export function SessionDetailProvider({
       sessionName,
       canEdit,
       canVote,
-      isOwner,
+      canManageSession,
+      isLocked,
       sharingInfo,
     ],
   )

@@ -2,8 +2,11 @@ import { useLoaderData } from 'react-router'
 
 import { SessionConnectionProvider } from '~/components/session/SessionConnectionContext'
 import { SessionDetailProvider, useSessionDetail } from '~/components/session/SessionDetailContext'
+import { SessionLockSection } from '~/components/session/SessionLockSection'
 import { SessionSettingsLayout } from '~/components/session/SessionSettingsLayout'
+import { SessionSettingsSection } from '~/components/session/SessionSettingsSection'
 import { SessionSettingsSections } from '~/components/session/SessionSettingsSections'
+import { PropertyVotingRulesSettings } from '~/components/voting/PropertyVotingRulesSettings'
 import { VotingPropertiesManagement } from '~/components/voting/VotingPropertiesManagement'
 import { handleSessionAction } from '~/data/session-actions.server'
 import { loadSessionContext } from '~/data/session-loader.server'
@@ -57,14 +60,22 @@ function PropertyVotingSettingsContent() {
   return (
     <SessionSettingsLayout backTo={`/property-voting/${data.uuid}`} title="Alignment voting settings">
       <SessionSettingsSections>
-        <VotingPropertiesManagement
-          votingProperties={votingProperties}
-          isConnected={isConnected}
-          onCreateVotingProperty={createVotingProperty}
-          onUpdateVotingProperty={updateVotingProperty}
-          onDeleteVotingProperty={deleteVotingProperty}
-          onReorderVotingProperties={reorderVotingProperties}
-        />
+        <SessionSettingsSection
+          title="Alignment properties"
+          description="Define the aspects participants rate for each item, such as impact or effort."
+        >
+          <VotingPropertiesManagement
+            votingProperties={votingProperties}
+            isConnected={isConnected}
+            onCreateVotingProperty={createVotingProperty}
+            onUpdateVotingProperty={updateVotingProperty}
+            onDeleteVotingProperty={deleteVotingProperty}
+            onReorderVotingProperties={reorderVotingProperties}
+            embedded
+          />
+        </SessionSettingsSection>
+        <PropertyVotingRulesSettings sessionUuid={data.uuid} initialSettings={data.propertyVotingSettings} />
+        <SessionLockSection sessionUuid={data.uuid} initialLock={{ isLocked: data.isLocked, lockedAt: null }} />
       </SessionSettingsSections>
     </SessionSettingsLayout>
   )
@@ -83,7 +94,8 @@ export default function PropertyVotingSessionSettingsPage() {
         initialSessionName={data.session.name}
         canEdit={data.canEdit}
         canVote={data.canVote}
-        isOwner={data.isOwner}
+        canManageSession={data.canManageSession}
+        initialIsLocked={data.isLocked}
         initialSharingInfo={data.sharingInfo}
       >
         <PropertyVotingSettingsContent />

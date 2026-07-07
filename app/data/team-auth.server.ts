@@ -44,16 +44,3 @@ export async function requireTeamMemberOrAppAdmin({
   if (user.role === 'app_admin') return getTeamAgent(env, teamId)
   return requireTeamMember({ env, teamId, userId: user.email })
 }
-
-export async function requireTeamAdminOrAppAdmin({
-  env,
-  teamId,
-  user,
-}: {
-  env: RequiredEnvVars
-  teamId: string
-  user: SessionUser
-}) {
-  if (user.role === 'app_admin') return getTeamAgent(env, teamId)
-  return requireTeamAdmin({ env, teamId, userId: user.email })
-}

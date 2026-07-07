@@ -13,7 +13,7 @@ describe('invite-expiry', () => {
   })
 
   it('formats active and expired invites', () => {
-    const now = Math.floor(new Date('2026-07-01T12:00:00Z').getTime() / 1000)
+    const now = Math.floor(Date.now() / 1000)
     expect(formatInviteExpiry(now - 1)).toBe('Expired')
     expect(formatInviteExpiry(now + 60 * 60 * 24)).toMatch(/^Expires /)
   })

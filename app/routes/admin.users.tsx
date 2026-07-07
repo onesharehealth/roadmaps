@@ -1,13 +1,11 @@
 import { useMemo } from 'react'
 import { Form, redirect, useLoaderData, useNavigation } from 'react-router'
 import { platformInviteEmail, sendEmail } from 'email'
-import type { ComponentProps } from 'react'
 
-import { FloatingTooltip } from '~/components/roadmap/FloatingTooltip'
 import { Button } from '~/components/ui/button'
 import { requireAdmin } from '../auth/session.server'
-import { DeleteUserButton } from '../components/admin/delete-user-button'
 import { PendingInviteRow } from '../components/admin/pending-invite-row'
+import { UserAdminRow } from '../components/admin/user-admin-row'
 import { getSystemAgent } from '../data/agents.server'
 import {
   isAdminScopedInvite,
@@ -22,28 +20,11 @@ import {
   demoteUserFromAdmin,
   getMaxAppAdmins,
   promoteUserToAdmin,
+  toggleUserLinearImport,
 } from '../data/user-admin.server'
 import { getInviteExpiresAt } from '../utils/invite-expiry'
 import { compareEmails } from '../utils/sort-by-email'
 import type { Route } from './+types/admin.users'
-
-type AdminActionButtonProps = ComponentProps<typeof Button> & {
-  disabledReason?: string
-}
-
-function AdminActionButton({ disabledReason, disabled, ...props }: AdminActionButtonProps) {
-  const button = <Button disabled={disabled} {...props} />
-
-  if (!disabled || !disabledReason) return button
-
-  return (
-    <FloatingTooltip content={disabledReason} placement="top" maxWidth={260}>
-      <span className="inline-flex" tabIndex={0}>
-        {button}
-      </span>
-    </FloatingTooltip>
-  )
-}
 
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
   const admin = await requireAdmin(request, context.cloudflare.env)
@@ -147,6 +128,14 @@ export const action = async ({ request, context }: Route.ActionArgs) => {
     await activateUser({ env, email: String(formData.get('email')) })
   }
 
+  if (intent === 'toggle-linear-import') {
+    await toggleUserLinearImport({
+      env,
+      email: String(formData.get('email')),
+      enabled: formData.get('enabled') === 'true',
+    })
+  }
+
   if (intent === 'delete') {
     if (formData.get('confirm') !== 'true') throw redirect('/admin/users')
 
@@ -198,110 +187,22 @@ export default function AdminUsersPage() {
         </Button>
       </Form>
 
-      <ul className="grid gap-2">
+      <ul className="grid gap-3">
         {listItems.map((item) => {
           if (item.kind === 'invite') {
             return <PendingInviteRow key={item.invite.token} invite={item.invite} showRole />
           }
 
           const user = item.user
-          const isActiveAppAdmin = user.role === 'app_admin' && user.status === 'active'
-          const isLastActiveAppAdmin = isActiveAppAdmin && activeAdminCount <= 1
-          const removeAdminDisabledReason = isLastActiveAppAdmin
-            ? "You can't remove admin rights from the last active app admin. Promote another user to app admin first."
-            : undefined
-          const makeAdminDisabledReason =
-            activeAdminCount >= maxAppAdmins
-              ? `You've reached the maximum of ${maxAppAdmins} active app admins. Remove an admin before promoting another user.`
-              : undefined
-          const deactivateDisabledReason = isLastActiveAppAdmin
-            ? "You can't deactivate the last active app admin. Promote another user to app admin first."
-            : undefined
-          const activateAdminDisabledReason =
-            user.status !== 'active' && user.role === 'app_admin' && activeAdminCount >= maxAppAdmins
-              ? `You've reached the maximum of ${maxAppAdmins} active app admins. Deactivate another app admin before activating this user.`
-              : undefined
-          const statusChangeDisabledReason =
-            user.status === 'active' ? deactivateDisabledReason : activateAdminDisabledReason
 
           return (
-            <li key={user.email} className="list-row flex items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 font-medium">
-                  <span>{user.email}</span>
-                  {user.email === currentUserEmail && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal">You</span>
-                  )}
-                  {user.role === 'app_admin' && (
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                      app admin
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-muted-foreground text-xs">
-                  {user.role} · {user.status}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap justify-end gap-2">
-                {user.role === 'app_admin' ? (
-                  <Form method="post">
-                    <input type="hidden" name="email" value={user.email} />
-                    <input type="hidden" name="intent" value="demote-admin" />
-                    <AdminActionButton
-                      type="submit"
-                      variant="outline"
-                      size="sm"
-                      disabled={isLastActiveAppAdmin}
-                      disabledReason={removeAdminDisabledReason}
-                    >
-                      Remove admin
-                    </AdminActionButton>
-                  </Form>
-                ) : (
-                  <Form method="post">
-                    <input type="hidden" name="email" value={user.email} />
-                    <input type="hidden" name="intent" value="promote-admin" />
-                    <AdminActionButton
-                      type="submit"
-                      variant="outline"
-                      size="sm"
-                      disabled={activeAdminCount >= maxAppAdmins}
-                      disabledReason={makeAdminDisabledReason}
-                    >
-                      Make admin
-                    </AdminActionButton>
-                  </Form>
-                )}
-
-                <Form method="post">
-                  <input type="hidden" name="email" value={user.email} />
-
-                  <input
-                    type="hidden"
-                    name="intent"
-                    value={user.status === 'active' ? 'deactivate' : 'activate'}
-                  />
-
-                  <AdminActionButton
-                    type="submit"
-                    variant="outline"
-                    size="sm"
-                    disabled={isLastActiveAppAdmin || !!activateAdminDisabledReason}
-                    disabledReason={statusChangeDisabledReason}
-                  >
-                    {user.status === 'active' ? 'Deactivate' : 'Activate'}
-                  </AdminActionButton>
-                </Form>
-
-                <DeleteUserButton
-                  email={user.email}
-                  disabled={isLastActiveAppAdmin}
-                  disabledReason="You can't delete the last active app admin. Promote another user to app admin first."
-                />
-              </div>
-            </li>
+            <UserAdminRow
+              key={user.email}
+              user={user}
+              currentUserEmail={currentUserEmail}
+              activeAdminCount={activeAdminCount}
+              maxAppAdmins={maxAppAdmins}
+            />
           )
         })}
       </ul>

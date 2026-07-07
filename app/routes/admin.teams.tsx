@@ -6,7 +6,7 @@ import { backfillTeamRegistry, listRegisteredTeams } from '../data/team-registry
 import type { Route } from './+types/admin.teams'
 
 export const loader = async ({ request, context }: Route.LoaderArgs) => {
-  await requireAdmin(request, context.cloudflare.env)
+  const admin = await requireAdmin(request, context.cloudflare.env)
 
   const registry = await listRegisteredTeams(context.cloudflare.env)
   const teams = await Promise.all(
@@ -14,6 +14,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
       const team = await getTeamAgent(context.cloudflare.env, record.teamId)
       const data = await team.getTeamData()
       const adminCount = await team.getAdminCount()
+      const currentUserRole = await team.getMemberRole(admin.email)
       return {
         ...record,
         name: data.ok ? String(data.body.name) : record.name,
@@ -23,6 +24,7 @@ export const loader = async ({ request, context }: Route.LoaderArgs) => {
         sessionCount: data.ok ? data.body.sessions.length : 0,
         members: data.ok ? data.body.members : [],
         orphaned: adminCount === 0,
+        currentUserRole,
       }
     }),
   )
@@ -44,16 +46,9 @@ export const action = async ({ request, context }: Route.ActionArgs) => {
   const teamId = String(formData.get('teamId'))
   const team = await getTeamAgent(env, teamId)
 
-  if (intent === 'claim-admin') {
+  if (intent === 'join-as-admin') {
     const result = await team.addMember({ email: admin.email, role: 'admin' })
-    if (!result.ok) throw new Response(result.errors[0] ?? 'Failed to claim team admin', { status: 400 })
-  }
-
-  if (intent === 'promote-member' || intent === 'demote-member') {
-    const email = String(formData.get('email'))
-    const role = intent === 'promote-member' ? 'admin' : 'member'
-    const result = await team.setMemberRole(email, role)
-    if (!result.ok) throw new Response(result.errors[0] ?? 'Failed to update member role', { status: 400 })
+    if (!result.ok) throw new Response(result.errors[0] ?? 'Failed to join team as admin', { status: 400 })
   }
 
   throw redirect('/admin/teams')
@@ -68,7 +63,7 @@ export default function AdminTeamsPage() {
         <div>
           <h2 className="text-xl font-semibold">Teams</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            View all registered teams and claim orphaned teams.
+            View all registered teams and join as admin when intervention is needed.
           </p>
         </div>
 
@@ -106,40 +101,29 @@ export default function AdminTeamsPage() {
                 </p>
               </div>
 
-              {team.orphaned && (
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
+                {team.currentUserRole === 'admin' ? (
+                  <span className="text-muted-foreground text-sm">You are a team admin</span>
+                ) : (
                   <Form method="post">
-                    <input type="hidden" name="intent" value="claim-admin" />
+                    <input type="hidden" name="intent" value="join-as-admin" />
                     <input type="hidden" name="teamId" value={team.teamId} />
                     <button type="submit" className="link-muted">
-                      Claim admin
+                      Join as admin
                     </button>
                   </Form>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {team.members.length > 0 && (
               <div className="grid gap-2 border-t pt-3">
                 {team.members.map((member) => (
-                  <div key={String(member.email)} className="flex items-center justify-between gap-2 text-sm">
+                  <div key={String(member.email)} className="text-sm">
                     <span>
                       {String(member.email)}{' '}
                       <span className="text-muted-foreground text-xs">({String(member.role)})</span>
                     </span>
-
-                    <Form method="post">
-                      <input type="hidden" name="teamId" value={team.teamId} />
-                      <input type="hidden" name="email" value={String(member.email)} />
-                      <input
-                        type="hidden"
-                        name="intent"
-                        value={member.role === 'admin' ? 'demote-member' : 'promote-member'}
-                      />
-                      <button type="submit" className="link-muted">
-                        {member.role === 'admin' ? 'Make member' : 'Make admin'}
-                      </button>
-                    </Form>
                   </div>
                 ))}
               </div>

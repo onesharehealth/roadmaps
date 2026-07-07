@@ -2,6 +2,7 @@ import { dataError, dataSuccess } from 'utils/data'
 
 import { GENERAL_EVENTS, getGeneralChannelName } from '../channels'
 import { buildAccessContext, canAccessSession, canEditSession, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 import type { RoadmapTimelineSettings } from '../session-schemas'
 
 function getEffectiveStartDate(ps: { timelineStartDate?: string | null }) {
@@ -42,6 +43,9 @@ export async function updateTimelineSettings(
 ) {
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const ps = this.getPrivateState()
   const partialState: Partial<typeof ps> = {}

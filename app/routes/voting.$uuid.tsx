@@ -53,7 +53,10 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
 
 function DotVotingContent() {
   const loaderData = useLoaderData<typeof loader>()
-  const { isConnected, sessionUuid, userEmail, sessionName, isOwner, canEdit, initialState } = useSessionDetail()
+  const { isConnected, sessionUuid, userEmail, sessionName, canManageSession, canEdit, isLocked, initialState } =
+    useSessionDetail()
+
+  const canModify = canEdit && !isLocked
 
   const initialDotsPerVoter = loaderData.dotVotingSettings?.dotsPerVoter ?? DEFAULT_DOT_VOTING_DOTS_PER_VOTER
 
@@ -151,14 +154,17 @@ function DotVotingContent() {
     })
   }
 
+  const votingEnabled = isConnected && !isLocked
+
   const itemGridProps = {
     itemStats: completeDotStats?.itemStats,
     onCastDotVote: castDotVote,
     onRemoveDotVote: removeDotVote,
     isConnected,
-    hasRemainingVotes: userRemainingVotes > 0,
+    votingEnabled,
+    hasRemainingVotes: userRemainingVotes > 0 && votingEnabled,
     userEmail,
-    canEdit,
+    canEdit: canModify,
     onUpdateItem: updateItem,
     onDeleteItem: deleteItem,
   }
@@ -167,14 +173,15 @@ function DotVotingContent() {
     <SessionShell
       sessionType="dot_voting"
       sessionName={sessionName ?? loaderData.session.name}
-      isOwner={isOwner}
+      canManageSession={canManageSession}
       isConnected={isConnected}
+      isLocked={isLocked}
       teamId={loaderData.session.teamId}
       currentTeamName={loaderData.currentTeamName}
       teams={loaderData.teams}
       headerActions={
         <>
-          {canEdit && (
+          {canModify && (
             <SessionItemsBulkDialog
               items={items}
               linearEnabled={loaderData.linearEnabled}
@@ -218,7 +225,7 @@ function DotVotingContent() {
         />
       )}
 
-      {canEdit && items.length > 0 && <ItemInlineCreate isConnected={isConnected} onCreateItem={createItem} />}
+      {canModify && items.length > 0 && <ItemInlineCreate isConnected={isConnected} onCreateItem={createItem} />}
 
       {sortedItems.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-12 text-center text-gray-500">
@@ -269,7 +276,8 @@ export default function VotingSessionPage() {
         initialSessionName={data.session.name}
         canEdit={data.canEdit}
         canVote={data.canVote}
-        isOwner={data.isOwner}
+        canManageSession={data.canManageSession}
+        initialIsLocked={data.isLocked}
         initialSharingInfo={data.sharingInfo}
       >
         <DotVotingContent />

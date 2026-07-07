@@ -2,7 +2,8 @@ import { dataError, type DataResult, dataSuccess } from 'utils/data'
 import { zParse } from 'utils/zod'
 
 import { getTimelineChannelName, ROADMAP_TIMELINE_EVENTS } from '../channels'
-import { buildAccessContext, canEditSession, type SessionAgent } from '../session-handlers'
+import { buildAccessContext, canAccessSession, canEditSession, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 import { type RoadmapItem, roadmapItemSchema, roadmapItemsSchema, type RoadmapStatus } from '../session-schemas'
 
 function loadLabelsForItem(agent: SessionAgent, itemUuid: string) {
@@ -61,6 +62,9 @@ export async function setRoadmapStatus(
 ): Promise<DataResult<{ updated: boolean }>> {
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   const allItems = this.ctx.storage.sql.exec(`SELECT * FROM roadmap_items`).toArray()
 
@@ -145,6 +149,9 @@ export async function reorderTimelineItems(
   const access = await buildAccessContext(this, userId)
   if (!canEditSession(access)) return dataError('Permission denied')
 
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
+
   for (const { uuid, roadmapOrder } of itemOrders) {
     this.ctx.storage.sql.exec(
       `UPDATE roadmap_items SET roadmap_order = ?, updated_at = UNIXEPOCH() WHERE uuid = ?`,
@@ -153,7 +160,7 @@ export async function reorderTimelineItems(
     )
   }
 
-  const itemsByStatusResult = await getAllItemsByStatus.call(this)
+  const itemsByStatusResult = await getAllItemsByStatus.call(this, { userId })
   if (!itemsByStatusResult.ok) return itemsByStatusResult
 
   this.broadcastToChannel(getTimelineChannelName(this.state.uuid), ROADMAP_TIMELINE_EVENTS.TIMELINE_ITEMS, {
@@ -172,7 +179,10 @@ export async function getItemsByStatus(this: SessionAgent, { status }: { status:
   return zParse(roadmapItemsSchema, transformed)
 }
 
-export async function getAllItemsByStatus(this: SessionAgent) {
+export async function getAllItemsByStatus(this: SessionAgent, { userId }: { userId: string }) {
+  const access = await buildAccessContext(this, userId)
+  if (!canAccessSession(access)) return dataError('Permission denied')
+
   const items = this.ctx.storage.sql.exec(`SELECT * FROM roadmap_items`).toArray()
   const transformed = items.map((item) => mapItemRow(this, item as Record<string, unknown>))
 

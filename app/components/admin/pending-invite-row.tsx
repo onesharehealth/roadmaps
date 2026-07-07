@@ -85,10 +85,10 @@ export function PendingInviteRow({ invite, showRole = false, teamName }: Pending
   const expired = isInviteExpired(invite.expiresAt)
 
   return (
-    <li className="list-row text-muted-foreground flex items-center justify-between gap-4">
-      <div>
+    <li className="list-row flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-normal">{invite.email}</span>
+          <span className="font-normal break-all">{invite.email}</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-600">
             pending
           </span>
@@ -100,12 +100,12 @@ export function PendingInviteRow({ invite, showRole = false, teamName }: Pending
           {expired && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal">expired</span>}
         </div>
 
-        <div className="text-xs opacity-80">
+        <div className="text-muted-foreground mt-1 text-xs opacity-80">
           Invited by {invite.invitedBy} · {formatInviteExpiry(invite.expiresAt)}
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
         <ResendInviteButton token={invite.token} teamName={teamName} />
         <RevokeInviteButton token={invite.token} email={invite.email} />
       </div>

@@ -8,7 +8,8 @@ import {
   getDotVotingSettingsChannelName,
   getGeneralChannelName,
 } from '../channels'
-import { buildAccessContext, canManageSharing, canVote, type SessionAgent } from '../session-handlers'
+import { buildAccessContext, canEditSession, canVote, type SessionAgent } from '../session-handlers'
+import { assertSessionUnlocked } from '../session-lock-utils'
 import type { DotVotingSettings } from '../session-schemas'
 import { DEFAULT_DOT_VOTING_DOTS_PER_VOTER } from '../session-schemas'
 
@@ -27,7 +28,10 @@ export async function setDotVotingSettings(
   { userId, dotsPerVoter }: { userId: string; dotsPerVoter: number },
 ) {
   const access = await buildAccessContext(this, userId)
-  if (!canManageSharing(access)) return dataError('Permission denied')
+  if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   if (!Number.isInteger(dotsPerVoter) || dotsPerVoter < 1) {
     return dataError('Dots per voter must be a positive integer')
@@ -48,11 +52,14 @@ export async function setDotVotingSettings(
 
 export async function resetDotVotes(this: SessionAgent, { userId }: { userId: string }) {
   const access = await buildAccessContext(this, userId)
-  if (!canManageSharing(access)) return dataError('Permission denied')
+  if (!canEditSession(access)) return dataError('Permission denied')
+
+  const lockError = assertSessionUnlocked(this)
+  if (lockError) return lockError
 
   this.ctx.storage.sql.exec(`DELETE FROM dot_votes`)
 
-  const dotStats = await this.getCompleteDotStats({})
+  const dotStats = await this.getCompleteDotStats({ userId })
   if (dotStats.ok) {
     this.broadcastToChannel(getDotVotesChannelName(this.state.uuid), DOT_VOTES_EVENTS.COMPLETE_STATS, {
       stats: dotStats.body,

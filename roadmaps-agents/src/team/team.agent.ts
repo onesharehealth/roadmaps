@@ -74,9 +74,7 @@ export class TeamAgent extends BaseWebSocketAgent<TeamAgentEnv, TeamState> {
     ) as unknown as SystemAgent
     await systemAgent.registerTeam({ teamId, name, createdBy, createdAt: now })
 
-    const userAgent = this.env.USER_AGENT.get(
-      this.env.USER_AGENT.idFromName(createdBy),
-    ) as unknown as UserAgent
+    const userAgent = this.env.USER_AGENT.get(this.env.USER_AGENT.idFromName(createdBy)) as unknown as UserAgent
     await userAgent.addTeamId(teamId)
 
     return dataSuccess()
@@ -97,9 +95,7 @@ export class TeamAgent extends BaseWebSocketAgent<TeamAgentEnv, TeamState> {
       now,
     )
 
-    const userAgent = this.env.USER_AGENT.get(
-      this.env.USER_AGENT.idFromName(email),
-    ) as unknown as UserAgent
+    const userAgent = this.env.USER_AGENT.get(this.env.USER_AGENT.idFromName(email)) as unknown as UserAgent
     await userAgent.addTeamId(this.state.teamId)
     await this.broadcast(JSON.stringify({ type: 'team:updated' }))
     return dataSuccess()
@@ -113,18 +109,14 @@ export class TeamAgent extends BaseWebSocketAgent<TeamAgentEnv, TeamState> {
     }
 
     this.ctx.storage.sql.exec(`DELETE FROM team_members WHERE email = ?`, email)
-    const userAgent = this.env.USER_AGENT.get(
-      this.env.USER_AGENT.idFromName(email),
-    ) as unknown as UserAgent
+    const userAgent = this.env.USER_AGENT.get(this.env.USER_AGENT.idFromName(email)) as unknown as UserAgent
     await userAgent.removeTeamId(this.state.teamId)
     await this.broadcast(JSON.stringify({ type: 'team:updated' }))
     return dataSuccess()
   }
 
   async getMemberRole(email: string): Promise<TeamMemberRole | null> {
-    const row = this.ctx.storage.sql
-      .exec(`SELECT role FROM team_members WHERE email = ?`, email)
-      .one()
+    const row = this.ctx.storage.sql.exec(`SELECT role FROM team_members WHERE email = ?`, email).toArray()[0]
     return (row?.role as TeamMemberRole) ?? null
   }
 
@@ -154,9 +146,7 @@ export class TeamAgent extends BaseWebSocketAgent<TeamAgentEnv, TeamState> {
   }
 
   async isMember(email: string) {
-    const row = this.ctx.storage.sql
-      .exec(`SELECT 1 FROM team_members WHERE email = ?`, email)
-      .one()
+    const row = this.ctx.storage.sql.exec(`SELECT 1 FROM team_members WHERE email = ?`, email).one()
     return !!row
   }
 
@@ -191,18 +181,8 @@ export class TeamAgent extends BaseWebSocketAgent<TeamAgentEnv, TeamState> {
     return dataSuccess()
   }
 
-  async updateTeamSessionName({
-    uuid,
-    name,
-  }: {
-    uuid: string
-    name: string
-  }): Promise<DataResult<void>> {
-    this.ctx.storage.sql.exec(
-      `UPDATE team_sessions SET name = ? WHERE uuid = ?`,
-      name,
-      uuid,
-    )
+  async updateTeamSessionName({ uuid, name }: { uuid: string; name: string }): Promise<DataResult<void>> {
+    this.ctx.storage.sql.exec(`UPDATE team_sessions SET name = ? WHERE uuid = ?`, name, uuid)
     await this.broadcast(JSON.stringify({ type: 'team:updated' }))
     return dataSuccess()
   }
@@ -214,25 +194,15 @@ export class TeamAgent extends BaseWebSocketAgent<TeamAgentEnv, TeamState> {
     uuid: string
     ownerEmail: string
   }): Promise<DataResult<void>> {
-    this.ctx.storage.sql.exec(
-      `UPDATE team_sessions SET owner_email = ? WHERE uuid = ?`,
-      ownerEmail,
-      uuid,
-    )
+    this.ctx.storage.sql.exec(`UPDATE team_sessions SET owner_email = ? WHERE uuid = ?`, ownerEmail, uuid)
     await this.broadcast(JSON.stringify({ type: 'team:updated' }))
     return dataSuccess()
   }
 
   async getTeamData() {
-    const meta = this.ctx.storage.sql
-      .exec(`SELECT * FROM team_meta WHERE id = 1`)
-      .one()
-    const members = this.ctx.storage.sql
-      .exec(`SELECT * FROM team_members ORDER BY joined_at ASC`)
-      .toArray()
-    const sessions = this.ctx.storage.sql
-      .exec(`SELECT * FROM team_sessions ORDER BY created_at DESC`)
-      .toArray()
+    const meta = this.ctx.storage.sql.exec(`SELECT * FROM team_meta WHERE id = 1`).one()
+    const members = this.ctx.storage.sql.exec(`SELECT * FROM team_members ORDER BY joined_at ASC`).toArray()
+    const sessions = this.ctx.storage.sql.exec(`SELECT * FROM team_sessions ORDER BY created_at DESC`).toArray()
 
     return dataSuccess({
       teamId: this.state.teamId,

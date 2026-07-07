@@ -308,6 +308,33 @@ export const dotVotingSettingsSchema = z.object({
 
 export type DotVotingSettings = z.infer<typeof dotVotingSettingsSchema>
 
+export const sessionLockStateSchema = z.object({
+  isLocked: z.boolean(),
+  lockedAt: z.number().nullable(),
+})
+
+export type SessionLockState = z.infer<typeof sessionLockStateSchema>
+
+export const getSessionLockSchema = z.object({})
+
+export const setSessionLockSchema = z.object({
+  isLocked: z.boolean(),
+})
+
+export const DEFAULT_REQUIRE_ALL_VOTERS_PRESENT = true
+
+export const propertyVotingSettingsSchema = z.object({
+  requireAllVotersPresent: z.boolean(),
+})
+
+export type PropertyVotingSettings = z.infer<typeof propertyVotingSettingsSchema>
+
+export const getPropertyVotingSettingsSchema = z.object({})
+
+export const setPropertyVotingSettingsSchema = z.object({
+  requireAllVotersPresent: z.boolean(),
+})
+
 export const shareWithSchema = z.object({
   shareWithEmail: z.string().email(),
   permission: sharePermissionSchema.optional().default('read'),
@@ -357,4 +384,7 @@ export type SessionPrivateState = {
   timelineStartDate?: string | null
   timelineCycleStartNumber?: number
   dotVotingDotsPerVoter?: number
+  isLocked?: boolean
+  lockedAt?: number | null
+  requireAllVotersPresent?: boolean
 }

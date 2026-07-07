@@ -147,6 +147,9 @@ export async function initializeSession(
     timelineStartDate: null,
     timelineCycleStartNumber: 19,
     dotVotingDotsPerVoter: DEFAULT_DOT_VOTING_DOTS_PER_VOTER,
+    isLocked: false,
+    lockedAt: null,
+    requireAllVotersPresent: true,
   })
 
   if (!agent.state?.uuid) {

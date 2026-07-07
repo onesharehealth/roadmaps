@@ -61,7 +61,7 @@ export function SessionTile({
           currentTeamId={currentTeamId}
           currentTeamName={currentTeamName}
           teams={teams}
-          isOwner={canDelete}
+          canManageSession={canDelete}
         />
       )}
     </div>

@@ -3,6 +3,7 @@ import { useLoaderData } from 'react-router'
 import { TimelineSettingsForm } from '~/components/roadmap/TimelineSettingsForm'
 import { SessionConnectionProvider } from '~/components/session/SessionConnectionContext'
 import { SessionDetailProvider, useSessionDetail } from '~/components/session/SessionDetailContext'
+import { SessionLockSection } from '~/components/session/SessionLockSection'
 import { SessionSettingsLayout } from '~/components/session/SessionSettingsLayout'
 import { SessionSettingsSections } from '~/components/session/SessionSettingsSections'
 import { handleSessionAction } from '~/data/session-actions.server'
@@ -13,12 +14,16 @@ import type { Route } from './+types/roadmap.$uuid.settings'
 
 export const loader = async ({ params, context }: Route.LoaderArgs) => {
   const user = context.get(userContext)
-  return loadSessionContext({
+  const data = await loadSessionContext({
     env: context.cloudflare.env,
     user,
     uuid: params.uuid!,
     sessionType: 'timeline',
   })
+
+  if (!data.canEdit) throw new Response('Forbidden', { status: 403 })
+
+  return data
 }
 
 export const action = async ({ request, context, params }: Route.ActionArgs) => {
@@ -47,6 +52,7 @@ function RoadmapSettingsContent() {
     <SessionSettingsLayout backTo={`/roadmap/${data.uuid}`} title="Roadmap settings">
       <SessionSettingsSections>
         <TimelineSettingsForm settings={timelineSettings} isConnected={isConnected} canEdit={canEdit} />
+        <SessionLockSection sessionUuid={data.uuid} initialLock={{ isLocked: data.isLocked, lockedAt: null }} />
       </SessionSettingsSections>
     </SessionSettingsLayout>
   )
@@ -65,7 +71,8 @@ export default function RoadmapSessionSettingsPage() {
         initialSessionName={data.session.name}
         canEdit={data.canEdit}
         canVote={data.canVote}
-        isOwner={data.isOwner}
+        canManageSession={data.canManageSession}
+        initialIsLocked={data.isLocked}
         initialSharingInfo={data.sharingInfo}
       >
         <RoadmapSettingsContent />

@@ -5,17 +5,10 @@ import { DotVotingItemCard } from '~/components/voting/DotVotingItemCard'
 export type DotVotingItemGridProps = {
   items: RoadmapItem[]
   itemStats?: DotVoteStats[]
-  onCastDotVote: (data: {
-    itemUuid: string
-    dotPositionX: number
-    dotPositionY: number
-  }) => void
-  onRemoveDotVote: (data: {
-    itemUuid: string
-    dotPositionX: number
-    dotPositionY: number
-  }) => void
+  onCastDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
+  onRemoveDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
   isConnected: boolean
+  votingEnabled?: boolean
   hasRemainingVotes: boolean
   userEmail: string
   canEdit?: boolean
@@ -34,6 +27,7 @@ export function DotVotingItemGrid({
   onCastDotVote,
   onRemoveDotVote,
   isConnected,
+  votingEnabled = true,
   hasRemainingVotes,
   userEmail,
   canEdit,
@@ -50,6 +44,7 @@ export function DotVotingItemGrid({
           onCastDotVote={onCastDotVote}
           onRemoveDotVote={onRemoveDotVote}
           isConnected={isConnected}
+          votingEnabled={votingEnabled}
           hasRemainingVotes={hasRemainingVotes}
           userEmail={userEmail}
           canEdit={canEdit}

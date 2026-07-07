@@ -21,7 +21,7 @@ type SessionLocationProps = {
   currentTeamName: string | null
   teams: Array<{ id: string; name: string }>
   sessionName: string
-  isOwner: boolean
+  canManageSession: boolean
   isConnected: boolean
 }
 
@@ -56,12 +56,12 @@ export function SessionLocation({
   currentTeamName,
   teams,
   sessionName,
-  isOwner,
+  canManageSession,
   isConnected,
 }: SessionLocationProps) {
   const currentLocation = getLocationValue(teamId)
   const label = getLocationLabel({ teamId, currentTeamName })
-  const canMove = isOwner && teams.length > 0
+  const canMove = canManageSession && teams.length > 0
 
   if (!canMove) {
     return <p className="text-muted-foreground mt-1 text-sm">{label}</p>

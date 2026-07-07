@@ -49,12 +49,9 @@ type UsePropertyVoteHelpersOptions = {
   isConnected: boolean
   connectedUsers: ConnectedUser[]
   completePropertyStats: Record<string, CompletePropertyStats>
-  onPropertyVote: (params: {
-    propertyUuid: string
-    itemUuid: string
-    value: number
-  }) => void
+  onPropertyVote: (params: { propertyUuid: string; itemUuid: string; value: number }) => void
   onGetCompletePropertyStats: (propertyUuid: string) => void
+  requireAllVotersPresent?: boolean
 }
 
 export function usePropertyVoteHelpers({
@@ -65,10 +62,9 @@ export function usePropertyVoteHelpers({
   completePropertyStats,
   onPropertyVote,
   onGetCompletePropertyStats,
+  requireAllVotersPresent = true,
 }: UsePropertyVoteHelpersOptions) {
-  const [localVotes, setLocalVotes] = useState<
-    Record<string, PropertyVoteValue>
-  >({})
+  const [localVotes, setLocalVotes] = useState<Record<string, PropertyVoteValue>>({})
 
   useEffect(() => {
     if (isConnected && votingProperties.length > 0) {
@@ -78,28 +74,21 @@ export function usePropertyVoteHelpers({
     }
   }, [votingProperties, isConnected, onGetCompletePropertyStats])
 
-  const getVoteKey = useCallback(
-    (itemUuid: string, propertyUuid: string) => `${itemUuid}-${propertyUuid}`,
-    [],
-  )
+  const getVoteKey = useCallback((itemUuid: string, propertyUuid: string) => `${itemUuid}-${propertyUuid}`, [])
 
   const getUserVoteForItemProperty = useCallback(
     (itemUuid: string, propertyUuid: string): PropertyVoteValue | null => {
       const propertyStats = completePropertyStats[propertyUuid]
       if (!propertyStats) return null
 
-      const itemStats = propertyStats.itemStats.find(
-        (stat) => stat.itemUuid === itemUuid,
-      )
+      const itemStats = propertyStats.itemStats.find((stat) => stat.itemUuid === itemUuid)
 
       if (itemStats?.userVote) {
         return itemStats.userVote.value as PropertyVoteValue
       }
 
       if (itemStats?.votes) {
-        const userVote = itemStats.votes.find(
-          (vote) => vote.username === userEmail,
-        )
+        const userVote = itemStats.votes.find((vote) => vote.username === userEmail)
         return userVote ? (userVote.value as PropertyVoteValue) : null
       }
 
@@ -113,16 +102,12 @@ export function usePropertyVoteHelpers({
       const propertyStats = completePropertyStats[propertyUuid]
       if (!propertyStats) return false
 
-      const itemStats = propertyStats.itemStats.find(
-        (stat) => stat.itemUuid === itemUuid,
-      )
+      const itemStats = propertyStats.itemStats.find((stat) => stat.itemUuid === itemUuid)
 
       if (itemStats?.userVote) return true
 
       if (itemStats?.votes) {
-        const userVote = itemStats.votes.find(
-          (vote) => vote.username === userEmail,
-        )
+        const userVote = itemStats.votes.find((vote) => vote.username === userEmail)
         return !!userVote
       }
 
@@ -166,35 +151,31 @@ export function usePropertyVoteHelpers({
     (itemUuid: string, propertyUuid: string): boolean => {
       const userHasVoted = hasUserVoted(itemUuid, propertyUuid)
       if (!userHasVoted) return true
+      if (!requireAllVotersPresent) return true
 
       const itemStats = getItemPropertyStats(itemUuid, propertyUuid)
       const otherVoters =
-        itemStats?.votes
-          .map((vote) => vote.username)
-          .filter((username) => username !== userEmail) || []
+        itemStats?.votes.map((vote) => vote.username).filter((username) => username !== userEmail) || []
 
       if (otherVoters.length === 0) return true
 
       const connectedUsernames = connectedUsers.map((user) => user.username)
       return otherVoters.every((voter) => connectedUsernames.includes(voter))
     },
-    [hasUserVoted, getItemPropertyStats, userEmail, connectedUsers],
+    [hasUserVoted, getItemPropertyStats, userEmail, connectedUsers, requireAllVotersPresent],
   )
 
   const getVoteChangeRestrictionReason = useCallback(
     (itemUuid: string, propertyUuid: string): string | null => {
+      if (!requireAllVotersPresent) return null
       if (canChangeVote(itemUuid, propertyUuid)) return null
 
       const itemStats = getItemPropertyStats(itemUuid, propertyUuid)
       const otherVoters =
-        itemStats?.votes
-          .map((vote) => vote.username)
-          .filter((username) => username !== userEmail) || []
+        itemStats?.votes.map((vote) => vote.username).filter((username) => username !== userEmail) || []
 
       const connectedUsernames = connectedUsers.map((user) => user.username)
-      const offlineVoters = otherVoters.filter(
-        (voter) => !connectedUsernames.includes(voter),
-      )
+      const offlineVoters = otherVoters.filter((voter) => !connectedUsernames.includes(voter))
 
       if (offlineVoters.length === 1) {
         return `Can't change vote while ${offlineVoters[0]} is offline`
@@ -205,7 +186,7 @@ export function usePropertyVoteHelpers({
 
       return "Can't change vote at this time"
     },
-    [canChangeVote, getItemPropertyStats, userEmail, connectedUsers],
+    [canChangeVote, getItemPropertyStats, userEmail, connectedUsers, requireAllVotersPresent],
   )
 
   const handlePropertyVote = useCallback(

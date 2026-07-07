@@ -12,7 +12,7 @@ import {
   resendTeamInvite,
   revokeScopedInvite,
 } from '../data/pending-invites.server'
-import { requireTeamAdminOrAppAdmin, requireTeamMemberOrAppAdmin } from '../data/team-auth.server'
+import { requireTeamAdmin, requireTeamMemberOrAppAdmin } from '../data/team-auth.server'
 import { userContext } from '../middleware/auth'
 import { getInviteExpiresAt } from '../utils/invite-expiry'
 import { compareEmails } from '../utils/sort-by-email'
@@ -34,6 +34,7 @@ export const loader = async ({ params, context }: Route.LoaderArgs) => {
   return {
     ...data.body,
     isAdmin: role === 'admin',
+    isMember: role !== null,
     isAppAdmin: user.role === 'app_admin',
     pendingInvites,
   }
@@ -53,7 +54,7 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
   const system = await getSystemAgent(env)
 
   if (intent === 'invite') {
-    const team = await requireTeamAdminOrAppAdmin({ env, teamId, user })
+    const team = await requireTeamAdmin({ env, teamId, userId: user.email })
     const email = String(formData.get('email'))
 
     const existing = await system.getUserByEmail(email)
@@ -98,7 +99,7 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
   }
 
   if (intent === 'resend-invite') {
-    await requireTeamAdminOrAppAdmin({ env, teamId, user })
+    await requireTeamAdmin({ env, teamId, userId: user.email })
     await resendTeamInvite({
       system,
       token: String(formData.get('token')),
@@ -112,7 +113,7 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
   }
 
   if (intent === 'revoke-invite') {
-    await requireTeamAdminOrAppAdmin({ env, teamId, user })
+    await requireTeamAdmin({ env, teamId, userId: user.email })
     await revokeScopedInvite({
       system,
       token: String(formData.get('token')),
@@ -122,7 +123,7 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
   }
 
   if (intent === 'remove') {
-    const team = await requireTeamAdminOrAppAdmin({ env, teamId, user })
+    const team = await requireTeamAdmin({ env, teamId, userId: user.email })
     const email = String(formData.get('email'))
     const result = await team.removeMember(email)
     if (!result.ok) throw new Response(result.errors[0] ?? 'Failed to remove member', { status: 400 })
@@ -130,8 +131,7 @@ export const action = async ({ request, context, params }: Route.ActionArgs) => 
   }
 
   if (intent === 'promote-member' || intent === 'demote-member') {
-    if (user.role !== 'app_admin') throw new Response('Forbidden', { status: 403 })
-    const team = await requireTeamAdminOrAppAdmin({ env, teamId, user })
+    const team = await requireTeamAdmin({ env, teamId, userId: user.email })
     const email = String(formData.get('email'))
     const role = intent === 'promote-member' ? 'admin' : 'member'
     const result = await team.setMemberRole(email, role)
@@ -197,9 +197,12 @@ export default function TeamDetailPage() {
 
       <h1 className="mt-4 mb-6 text-2xl font-semibold">{String(team.name)}</h1>
 
-      {team.isAppAdmin && (
-        <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
-          App admin view. You can manage team roles even if you are not a team member.
+      {team.isAppAdmin && !team.isMember && (
+        <div className="mb-6 flex flex-col gap-2 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800 sm:flex-row sm:items-center sm:justify-between">
+          <span>App admin view. Join this team as an admin from App Administration to manage members.</span>
+          <Link to="/admin/teams" className="font-medium underline">
+            Join as admin
+          </Link>
         </div>
       )}
 
@@ -209,7 +212,7 @@ export default function TeamDetailPage() {
         </div>
       </dl>
 
-      {(team.isAdmin || team.isAppAdmin) && (
+      {team.isAdmin && (
         <Form
           method="post"
           className="mb-8 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center"
@@ -244,7 +247,7 @@ export default function TeamDetailPage() {
               </span>
 
               <div className="flex gap-2">
-                {team.isAppAdmin &&
+                {team.isAdmin &&
                   (member.role === 'admin' ? (
                     <Form method="post">
                       <input type="hidden" name="intent" value="demote-member" />
@@ -263,7 +266,7 @@ export default function TeamDetailPage() {
                     </Form>
                   ))}
 
-                {(team.isAdmin || team.isAppAdmin) && member.role !== 'admin' && (
+                {team.isAdmin && member.role !== 'admin' && (
                   <Form method="post">
                     <input type="hidden" name="intent" value="remove" />
 

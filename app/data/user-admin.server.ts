@@ -13,13 +13,7 @@ async function requireUserRecord(env: RequiredEnvVars, email: string) {
   return user.body
 }
 
-async function assertCanRemoveAdminRole({
-  env,
-  email,
-}: {
-  env: RequiredEnvVars
-  email: string
-}) {
+async function assertCanRemoveAdminRole({ env, email }: { env: RequiredEnvVars; email: string }) {
   const user = await requireUserRecord(env, email)
   if (user.role !== 'app_admin' || user.status !== 'active') return
 
@@ -76,6 +70,27 @@ export async function activateUser({ env, email }: { env: RequiredEnvVars; email
 
   const result = await system.setUserStatus(email, 'active')
   if (!result.ok) throw new Response(result.errors[0] ?? 'Failed to activate user', { status: 400 })
+}
+
+export async function toggleUserLinearImport({
+  env,
+  email,
+  enabled,
+}: {
+  env: RequiredEnvVars
+  email: string
+  enabled: boolean
+}) {
+  const user = await requireUserRecord(env, email)
+  if (user.role === 'app_admin') {
+    throw new Response('App admins always have Linear import access', { status: 400 })
+  }
+
+  const system = await getSystemAgent(env)
+  const result = await system.updateUserLinearImportEnabled(email, enabled)
+  if (!result.ok) {
+    throw new Response(result.errors[0] ?? 'Failed to update Linear import access', { status: 400 })
+  }
 }
 
 export async function deleteUserCompletely({ env, email }: { env: RequiredEnvVars; email: string }) {
