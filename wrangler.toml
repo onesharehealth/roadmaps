@@ -11,7 +11,7 @@ enabled = true
 
 [vars]
 ENVIRONMENT = "production"
-APP_URL = "https://roadmaps.onesharehealth.workers.dev"
+APP_URL = "https://roadmaps.onesharehealth.ai"
 MAX_APP_ADMINS = 5
 EMAIL_PROVIDER = "postmark"
 EMAIL_FROM = "roadmaps@mail.onesharehealth.com"
