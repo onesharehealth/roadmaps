@@ -66,9 +66,13 @@ function DotVotingContent() {
     initialItems: loaderData.items,
   })
 
-  const { castDotVote, removeDotVote, completeDotStats } = useDotVotes({
+  const {
+    castDotVote,
+    removeDotVote,
+    completeDotStats,
+    isReady: isDotVotesReady,
+  } = useDotVotes({
     sessionUuid,
-    userEmail,
     initialStats: initialState?.dotVoteStats,
   })
 
@@ -154,7 +158,7 @@ function DotVotingContent() {
     })
   }
 
-  const votingEnabled = isConnected && !isLocked
+  const votingEnabled = isConnected && isDotVotesReady && !isLocked
 
   const itemGridProps = {
     itemStats: completeDotStats?.itemStats,

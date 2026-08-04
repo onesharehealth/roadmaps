@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { CompleteDotStats, DotVoteStats } from 'roadmaps-agents/schemas'
+import type { CompleteDotStats } from 'roadmaps-agents/schemas'
 import {
   type CastDotVote,
   DOT_VOTES_ACTIONS,
@@ -8,15 +8,14 @@ import {
 } from 'roadmaps-agents/schemas'
 
 import { useSessionDetail } from '~/components/session/SessionDetailContext'
+import { toastChannelError } from '~/lib/toast-channel-error'
 
 interface UseDotVotesProps {
   sessionUuid: string
-  userEmail: string
   initialStats?: CompleteDotStats
 }
 
 export interface UseDotVotesReturn {
-  dotVoteStats: Record<string, DotVoteStats>
   completeDotStats: CompleteDotStats | null
   castDotVote: (data: CastDotVote) => void
   removeDotVote: (data: { itemUuid: string; dotPositionX: number; dotPositionY: number }) => void
@@ -24,10 +23,9 @@ export interface UseDotVotesReturn {
   isReady: boolean
 }
 
-export function useDotVotes({ sessionUuid, userEmail, initialStats }: UseDotVotesProps): UseDotVotesReturn {
+export function useDotVotes({ sessionUuid, initialStats }: UseDotVotesProps): UseDotVotesReturn {
   const { isConnected, isBootstrapped, subscribeToChannel, publishToChannel } = useSessionDetail()
   const [isReady, setIsReady] = useState(false)
-  const [dotVoteStats, setDotVoteStats] = useState<Record<string, DotVoteStats>>({})
   const [completeDotStats, setCompleteDotStats] = useState<CompleteDotStats | null>(initialStats || null)
 
   const dotVotesChannelName = getDotVotesChannelName(sessionUuid)
@@ -45,19 +43,11 @@ export function useDotVotes({ sessionUuid, userEmail, initialStats }: UseDotVote
 
     const unsubscribe = subscribeToChannel(dotVotesChannelName, {
       [DOT_VOTES_EVENTS.CAST_CONFIRMED]: () => {
-        // Vote cast confirmed - stats will be broadcast
+        // Vote cast confirmed - completeStats will follow
       },
 
       [DOT_VOTES_EVENTS.REMOVE_CONFIRMED]: () => {
-        // Vote removal confirmed - stats will be broadcast
-      },
-
-      [DOT_VOTES_EVENTS.STATS]: (payload) => {
-        const data = payload as { stats: DotVoteStats }
-        setDotVoteStats((prev) => ({
-          ...prev,
-          [data.stats.itemUuid]: data.stats,
-        }))
+        // Vote removal confirmed - completeStats will follow
       },
 
       [DOT_VOTES_EVENTS.COMPLETE_STATS]: (payload) => {
@@ -66,7 +56,7 @@ export function useDotVotes({ sessionUuid, userEmail, initialStats }: UseDotVote
       },
 
       [DOT_VOTES_EVENTS.ERROR]: (payload) => {
-        console.error('[useDotVotes] Error:', payload)
+        toastChannelError(payload as { message?: string; action?: string })
       },
     })
 
@@ -100,7 +90,6 @@ export function useDotVotes({ sessionUuid, userEmail, initialStats }: UseDotVote
   }, [publishToChannel, dotVotesChannelName, isReady])
 
   return {
-    dotVoteStats,
     completeDotStats,
     castDotVote,
     removeDotVote,
