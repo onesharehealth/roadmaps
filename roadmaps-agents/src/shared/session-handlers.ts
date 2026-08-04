@@ -69,8 +69,8 @@ export async function buildAccessContext(agent: SessionAgent, userId: string): P
     const teamAgent = agent.env.TEAM_AGENT.get(
       agent.env.TEAM_AGENT.idFromName(state.teamId),
     ) as unknown as TeamAgent
-    isTeamMember = await teamAgent.isMember(userId)
-    const role = await teamAgent.getMemberRole(userId)
+    const [memberResult, role] = await Promise.all([teamAgent.isMember(userId), teamAgent.getMemberRole(userId)])
+    isTeamMember = memberResult
     isTeamAdmin = role === 'admin'
   }
 

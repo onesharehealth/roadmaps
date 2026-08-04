@@ -7,12 +7,83 @@ import { assertSessionUnlocked } from '../session-lock-utils'
 import {
   type CompleteDotStats,
   completeDotStatsSchema,
+  type DotVote,
   dotVoteSchema,
   dotVotesSchema,
   type DotVoteStats,
   dotVoteStatsSchema,
 } from '../session-schemas'
 import { DEFAULT_DOT_VOTING_DOTS_PER_VOTER } from '../session-schemas'
+
+function mapVoteRow(vote: Record<string, unknown>): DotVote {
+  return {
+    id: vote.id as number,
+    itemUuid: vote.item_uuid as string,
+    username: vote.username as string,
+    dotPositionX: vote.dot_position_x as number,
+    dotPositionY: vote.dot_position_y as number,
+    createdAt: vote.created_at as number,
+    updatedAt: vote.updated_at as number,
+  }
+}
+
+/** Unauthorized local read — caller must already have authorized this message. */
+function readItemStats(agent: SessionAgent, { itemUuid, userId }: { itemUuid: string; userId: string }) {
+  const votes = agent.ctx.storage.sql
+    .exec(`SELECT * FROM dot_votes WHERE item_uuid = ? ORDER BY created_at DESC`, itemUuid)
+    .toArray()
+    .map(mapVoteRow)
+
+  const stats: DotVoteStats = {
+    itemUuid,
+    votes,
+    totalVotes: votes.length,
+    userVotes: votes.filter((vote) => vote.username === userId),
+  }
+
+  return zParse(dotVoteStatsSchema, stats)
+}
+
+/** Unauthorized local read — caller must already have authorized this message. */
+function readCompleteStats(agent: SessionAgent, { userId }: { userId: string }) {
+  const items = agent.ctx.storage.sql.exec(`SELECT uuid FROM roadmap_items`).toArray()
+  const rows = agent.ctx.storage.sql.exec(`SELECT * FROM dot_votes ORDER BY created_at DESC`).toArray()
+
+  const votesByItem = new Map<string, DotVote[]>()
+  for (const row of rows) {
+    const vote = mapVoteRow(row)
+    const list = votesByItem.get(vote.itemUuid)
+    if (list) list.push(vote)
+    else votesByItem.set(vote.itemUuid, [vote])
+  }
+
+  const itemStats: DotVoteStats[] = []
+  const participationByItem: Record<string, number> = {}
+  const uniqueVoters = new Set<string>()
+
+  for (const item of items) {
+    const itemUuid = item.uuid as string
+    const votes = votesByItem.get(itemUuid) ?? []
+    for (const vote of votes) uniqueVoters.add(vote.username)
+    itemStats.push({
+      itemUuid,
+      votes,
+      totalVotes: votes.length,
+      userVotes: votes.filter((vote) => vote.username === userId),
+    })
+    participationByItem[itemUuid] = votes.length
+  }
+
+  const ps = agent.getPrivateState()
+  const completeStats: CompleteDotStats = {
+    itemStats,
+    totalVoters: uniqueVoters.size,
+    participationByItem,
+    dotsPerVoter: ps.dotVotingDotsPerVoter ?? DEFAULT_DOT_VOTING_DOTS_PER_VOTER,
+  }
+
+  return zParse(completeDotStatsSchema, completeStats)
+}
 
 export async function castDotVote(
   this: SessionAgent,
@@ -75,12 +146,7 @@ export async function castDotVote(
   const channelName = getDotVotesChannelName(this.state.uuid)
   this.broadcastToChannel(channelName, DOT_VOTES_EVENTS.CAST_CONFIRMED, { vote: parsed.body })
 
-  const statsResult = await getDotVoteStats.call(this, { itemUuid, userId })
-  if (statsResult.ok) {
-    this.broadcastToChannel(channelName, DOT_VOTES_EVENTS.STATS, { stats: statsResult.body })
-  }
-
-  const completeStatsResult = await getCompleteDotStats.call(this, { userId })
+  const completeStatsResult = readCompleteStats(this, { userId })
   if (completeStatsResult.ok) {
     this.broadcastToChannel(channelName, DOT_VOTES_EVENTS.COMPLETE_STATS, { stats: completeStatsResult.body })
   }
@@ -94,34 +160,7 @@ export async function getDotVoteStats(
 ) {
   const access = await buildAccessContext(this, userId)
   if (!canAccessSession(access)) return dataError('Permission denied')
-
-  const votes = this.ctx.storage.sql
-    .exec(`SELECT * FROM dot_votes WHERE item_uuid = ? ORDER BY created_at DESC`, itemUuid)
-    .toArray()
-
-  const transformedVotes = votes.map((vote) => ({
-    id: vote.id,
-    itemUuid: vote.item_uuid,
-    username: vote.username,
-    dotPositionX: vote.dot_position_x,
-    dotPositionY: vote.dot_position_y,
-    createdAt: vote.created_at,
-    updatedAt: vote.updated_at,
-  }))
-
-  const parsedVotes = zParse(dotVotesSchema, transformedVotes)
-  if (!parsedVotes.ok) return parsedVotes
-
-  const userVotes = userId ? parsedVotes.body.filter((vote) => vote.username === userId) : []
-
-  const stats: DotVoteStats = {
-    itemUuid,
-    votes: parsedVotes.body,
-    totalVotes: parsedVotes.body.length,
-    userVotes,
-  }
-
-  return zParse(dotVoteStatsSchema, stats)
+  return readItemStats(this, { itemUuid, userId })
 }
 
 export async function removeDotVote(
@@ -155,12 +194,7 @@ export async function removeDotVote(
   const channelName = getDotVotesChannelName(this.state.uuid)
   this.broadcastToChannel(channelName, DOT_VOTES_EVENTS.REMOVE_CONFIRMED, { success: true })
 
-  const statsResult = await getDotVoteStats.call(this, { itemUuid, userId })
-  if (statsResult.ok) {
-    this.broadcastToChannel(channelName, DOT_VOTES_EVENTS.STATS, { stats: statsResult.body })
-  }
-
-  const completeStatsResult = await getCompleteDotStats.call(this, { userId })
+  const completeStatsResult = readCompleteStats(this, { userId })
   if (completeStatsResult.ok) {
     this.broadcastToChannel(channelName, DOT_VOTES_EVENTS.COMPLETE_STATS, { stats: completeStatsResult.body })
   }
@@ -171,34 +205,7 @@ export async function removeDotVote(
 export async function getCompleteDotStats(this: SessionAgent, { userId }: { userId: string }) {
   const access = await buildAccessContext(this, userId)
   if (!canAccessSession(access)) return dataError('Permission denied')
-
-  const items = this.ctx.storage.sql.exec(`SELECT uuid FROM roadmap_items`).toArray()
-  const itemStats: DotVoteStats[] = []
-  const participationByItem: Record<string, number> = {}
-
-  for (const item of items) {
-    const itemUuid = item.uuid as string
-    const statsResult = await getDotVoteStats.call(this, { itemUuid, userId })
-    if (statsResult.ok) {
-      itemStats.push(statsResult.body)
-      participationByItem[itemUuid] = statsResult.body.totalVotes
-    }
-  }
-
-  const uniqueVoters = new Set<string>()
-  for (const stats of itemStats) {
-    for (const vote of stats.votes) uniqueVoters.add(vote.username)
-  }
-
-  const ps = this.getPrivateState()
-  const completeStats: CompleteDotStats = {
-    itemStats,
-    totalVoters: uniqueVoters.size,
-    participationByItem,
-    dotsPerVoter: ps.dotVotingDotsPerVoter ?? DEFAULT_DOT_VOTING_DOTS_PER_VOTER,
-  }
-
-  return zParse(completeDotStatsSchema, completeStats)
+  return readCompleteStats(this, { userId })
 }
 
 export async function getDotVotes(this: SessionAgent, { userId }: { userId: string }) {
@@ -206,14 +213,5 @@ export async function getDotVotes(this: SessionAgent, { userId }: { userId: stri
   if (!canAccessSession(access)) return dataError('Permission denied')
 
   const rows = this.ctx.storage.sql.exec(`SELECT * FROM dot_votes ORDER BY created_at DESC`).toArray()
-  const transformed = rows.map((vote) => ({
-    id: vote.id,
-    itemUuid: vote.item_uuid,
-    username: vote.username,
-    dotPositionX: vote.dot_position_x,
-    dotPositionY: vote.dot_position_y,
-    createdAt: vote.created_at,
-    updatedAt: vote.updated_at,
-  }))
-  return zParse(dotVotesSchema, transformed)
+  return zParse(dotVotesSchema, rows.map(mapVoteRow))
 }
