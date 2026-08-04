@@ -175,7 +175,7 @@ export async function importLinearIssuesToSession({
       }
 
       const payload = {
-        title: issue.title,
+        title: `[${issue.identifier}] ${issue.title}`,
         description,
         externalId: issue.identifier,
         estimate: issue.estimate ?? undefined,

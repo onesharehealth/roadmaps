@@ -374,24 +374,24 @@ export function DotVotingItemCard({
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent
           showCloseButton={false}
-          className="max-h-[90vh] max-w-2xl gap-0 overflow-y-auto p-0 sm:max-w-2xl"
+          className="max-h-[90vh] max-w-2xl min-w-0 gap-0 overflow-x-hidden overflow-y-auto p-0 sm:max-w-2xl"
         >
-          <div className="sticky top-0 z-10 flex items-start justify-between border-b border-gray-200 bg-white p-6">
-            <h2 className="text-2xl font-bold text-gray-900">{item.title}</h2>
+          <div className="sticky top-0 z-10 flex min-w-0 items-start justify-between border-b border-gray-200 bg-white p-6">
+            <h2 className="min-w-0 flex-1 text-2xl font-bold break-all text-gray-900">{item.title}</h2>
             <button
               onClick={() => setIsDialogOpen(false)}
-              className="text-gray-400 hover:text-gray-600"
+              className="shrink-0 text-gray-400 hover:text-gray-600"
               aria-label="Close dialog"
             >
               <X size={24} />
             </button>
           </div>
 
-          <div className="p-6">
+          <div className="min-w-0 p-6">
             {item.description && (
               <div className="mb-4 border-b border-gray-200 pb-4">
                 <h3 className="mb-2 text-sm font-semibold text-gray-700">Description</h3>
-                <p className="whitespace-pre-wrap text-gray-700">{item.description}</p>
+                <p className="break-all whitespace-pre-wrap text-gray-700">{item.description}</p>
               </div>
             )}
 
@@ -421,9 +421,11 @@ export function DotVotingItemCard({
             </div>
 
             {item.externalContent && (
-              <div>
+              <div className="min-w-0">
                 <h3 className="mb-3 text-sm font-semibold text-gray-700">Details</h3>
-                <MarkdownContent className="rounded-md bg-gray-50 p-4">{item.externalContent}</MarkdownContent>
+                <MarkdownContent className="min-w-0 rounded-md bg-gray-50 p-4 break-all">
+                  {item.externalContent}
+                </MarkdownContent>
               </div>
             )}
           </div>
